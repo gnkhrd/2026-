@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>2026년 정책연수</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- 상단 헤더: 연수명 · 날짜 · 장소 · 현재 상태 배지 (모바일 헤더 / PC 좌측 소개) -->
+  <div class="hero-split">
+    <div class="hero">
+      <div class="eyebrow">2026 사회복지법인 굿네이버스 정책연수</div>
+      <h1>굿네이버스, 아동행복의 방향을 제시하다</h1>
+      <p>2026년 정책연수에 오신 것을 환영합니다</p>
+      <div class="meta" id="event-info">2026.09.01(화) ~ 09.03(목) · 스플라스 리솜</div>
+      <div class="status-row">
+        <span class="status-badge" id="status-badge">상태 확인 중...</span>
+      </div>
+    </div>
+
+    <!-- PC 전용: 우측 "현재 세션" 박스 -->
+    <div class="session-box desktop-only" id="session-box">
+      <div class="session-box-label">지금 이 순간</div>
+      <div class="session-box-status" id="sb-status">상태 확인 중...</div>
+      <div class="session-box-current" id="sb-current"></div>
+      <div class="session-box-next" id="sb-next"></div>
+    </div>
+  </div>
+
+  <!-- 오늘의 일정 -->
+  <div class="section-title">
+    <span>오늘의 일정</span>
+    <span class="count" id="today-date-label"></span>
+  </div>
+  <div class="card" id="today-schedule">
+    <div class="empty">일정 정보를 불러오는 중...</div>
+  </div>
+
+  <!-- 빠른 실행 메뉴 -->
+  <div class="section-title">
+    <span>빠른 실행</span>
+  </div>
+  <div class="menu-grid">
+
+    <a class="menu-card featured" href="qr-card.html">
+      <div class="icon">🤝</div>
+      <div class="body">
+        <div class="label">⭐ 지금 가장 활발해요</div>
+        <div class="title">네트워크 활동 (QR 명함 · 랭킹전)</div>
+        <div class="desc">내 QR 명함 만들고, 서로 스캔하며 네트워킹 · 랭킹전 참여하기</div>
+      </div>
+      <div class="arrow">›</div>
+    </a>
+
+    <a class="menu-card" href="attendance.html">
+      <div class="icon">✅</div>
+      <div class="body">
+        <div class="label">출석</div>
+        <div class="title">출석체크</div>
+        <div class="desc">사번·성명 입력 후 출석 인증, 전체 출석현황 확인</div>
+      </div>
+      <div class="arrow">›</div>
+    </a>
+
+    <a class="menu-card" href="schedule.html">
+      <div class="icon">🗓️</div>
+      <div class="body">
+        <div class="label">일정</div>
+        <div class="title">일정표</div>
+        <div class="desc">2박3일 전체 타임테이블, 변경사항 실시간 반영</div>
+      </div>
+      <div class="arrow">›</div>
+    </a>
+
+    <a class="menu-card" href="materials.html">
+      <div class="icon">📑</div>
+      <div class="body">
+        <div class="label">자료</div>
+        <div class="title">발표자료</div>
+        <div class="desc">온라인 열람 전용 (다운로드 불가)</div>
+      </div>
+      <div class="arrow">›</div>
+    </a>
+
+    <a class="menu-card" href="community.html">
+      <div class="icon">🌱</div>
+      <div class="body">
+        <div class="label">공동체</div>
+        <div class="title">공동체 안내</div>
+        <div class="desc">주요 프로그램 진행방법 소개</div>
+      </div>
+      <div class="arrow">›</div>
+    </a>
+
+    <a class="menu-card" href="info.html">
+      <div class="icon">📌</div>
+      <div class="body">
+        <div class="label">안내</div>
+        <div class="title">기타 안내</div>
+        <div class="desc">방배정표 · 식사장소 · 연수지도 · 식사조</div>
+      </div>
+      <div class="arrow">›</div>
+    </a>
+  </div>
+
+  <!-- 하단 보조 영역 -->
+  <div class="card notice-block">
+    <div class="notice-row urgent">
+      <span class="notice-icon">📣</span>
+      <div>
+        <div class="notice-label">긴급 공지</div>
+        <div class="notice-text" id="urgent-notice">현재 등록된 긴급 공지가 없습니다.</div>
+      </div>
+    </div>
+    <div class="notice-row">
+      <span class="notice-icon">☎️</span>
+      <div>
+        <div class="notice-label">주무부서 문의</div>
+        <div class="notice-text">GN컬쳐팀 · gnkhrd@gnk.or.kr</div>
+      </div>
+    </div>
+    <div class="notice-row">
+      <span class="notice-icon">💬</span>
+      <div>
+        <div class="notice-label">자주 묻는 질문</div>
+        <div class="notice-text">QR 명함이 안 만들어져요 → 사번·성명이 명단과 정확히 일치하는지 확인해주세요. 카메라가 안 열려요 → 브라우저 카메라 권한을 허용해주세요.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="assets/config.js"></script>
+<script src="assets/mockdata.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/util.js"></script>
+<script>
+document.getElementById("event-info").textContent =
+  window.CONFIG.EVENT_DATES[0].replace(/-/g,".") + " ~ " + window.CONFIG.EVENT_DATES.slice(-1)[0].slice(8) + "일 · " + window.CONFIG.EVENT_PLACE;
+
+function timeToNum(t) { return parseInt(String(t).replace(":", ""), 10); }
+
+function renderTimelineList(container, items, opts) {
+  opts = opts || {};
+  container.innerHTML = items.map((s, i) => `
+    <div class="timeline-item ${opts.currentIdx === i ? "current" : ""} ${opts.nextIdx === i ? "next" : ""}">
+      <div class="t">${s.time}</div>
+      <div class="content">
+        <div class="title">${s.title}${opts.currentIdx === i ? ' <span class="badge live">진행 중</span>' : ""}${opts.nextIdx === i ? ' <span class="badge soon">다음 일정</span>' : ""}</div>
+        <div class="speaker">${s.speaker || ""}</div>
+      </div>
+    </div>
+  `).join("");
+}
+
+async function initHome() {
+  const res = await API.getSchedule();
+  const badgeEl = document.getElementById("status-badge");
+  const sbStatus = document.getElementById("sb-status");
+  const sbCurrent = document.getElementById("sb-current");
+  const sbNext = document.getElementById("sb-next");
+  const todayLabelEl = document.getElementById("today-date-label");
+  const todayWrap = document.getElementById("today-schedule");
+
+  if (!res.ok || !res.list.length) {
+    badgeEl.textContent = "📋 일정 정보 없음";
+    todayWrap.innerHTML = '<div class="empty">등록된 일정이 없습니다.</div>';
+    return;
+  }
+
+  const today = todayStr();
+  const todayItems = res.list.filter(s => s.date === today).sort((a, b) => timeToNum(a.time) - timeToNum(b.time));
+
+  if (!todayItems.length) {
+    // 테스트 기간 등 실제 연수 기간이 아닐 때 — Day 1 일정을 미리보기로 보여줌
+    const firstDate = [...new Set(res.list.map(s => s.date))].sort()[0];
+    const preview = res.list.filter(s => s.date === firstDate).sort((a, b) => timeToNum(a.time) - timeToNum(b.time));
+    badgeEl.className = "status-badge off";
+    badgeEl.textContent = "🧪 테스트 모드 · 오늘은 연수 기간이 아니에요";
+    sbStatus.textContent = "🧪 테스트 모드";
+    sbCurrent.innerHTML = "";
+    sbNext.innerHTML = "";
+    todayLabelEl.textContent = `${firstDate} 미리보기`;
+    renderTimelineList(todayWrap, preview, {});
+    return;
+  }
+
+  todayLabelEl.textContent = today + " · " + todayItems.length + "개 일정";
+
+  const nowNum = timeToNum(nowHHMM());
+  let currentIdx = -1, nextIdx = -1;
+  for (let i = 0; i < todayItems.length; i++) {
+    if (timeToNum(todayItems[i].time) <= nowNum) currentIdx = i;
+  }
+  if (currentIdx + 1 < todayItems.length) nextIdx = currentIdx + 1;
+
+  const win = isWithinAttendanceWindow();
+  if (win.ok && window.CONFIG.ENFORCE_ATTENDANCE_WINDOW) {
+    badgeEl.className = "status-badge ok";
+    badgeEl.textContent = "✅ 출석 가능";
+  } else if (currentIdx >= 0) {
+    badgeEl.className = "status-badge now";
+    badgeEl.textContent = "🟢 " + todayItems[currentIdx].title + " 진행 중";
+  } else if (nextIdx === 0) {
+    badgeEl.className = "status-badge soon";
+    badgeEl.textContent = "🕒 곧 시작합니다";
+  } else {
+    badgeEl.className = "status-badge done";
+    badgeEl.textContent = "🌙 오늘 일정 종료";
+  }
+
+  sbStatus.innerHTML = badgeEl.outerHTML;
+  sbCurrent.innerHTML = currentIdx >= 0
+    ? `<div class="sb-line"><span class="sb-tag">현재</span> ${todayItems[currentIdx].time} · ${todayItems[currentIdx].title}</div>` : "";
+  sbNext.innerHTML = nextIdx >= 0
+    ? `<div class="sb-line"><span class="sb-tag next">다음</span> ${todayItems[nextIdx].time} · ${todayItems[nextIdx].title}</div>` : "";
+
+  renderTimelineList(todayWrap, todayItems, { currentIdx, nextIdx });
+}
+
+initHome();
+</script>
+</body>
+</html>

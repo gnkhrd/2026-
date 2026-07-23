@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>일정표 · 2026년 정책연수</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a class="back" href="index.html">‹</a>
+    <div>
+      <h1>일정표</h1>
+      <div class="sub">시간·순서는 현장 사정에 따라 바뀔 수 있어요</div>
+    </div>
+  </div>
+
+  <div class="day-tabs" id="day-tabs"></div>
+  <div class="schedule-grid" id="schedule-grid"></div>
+</div>
+
+<script src="assets/config.js"></script>
+<script src="assets/mockdata.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/util.js"></script>
+<script>
+let ALL = [];
+let currentDate = "";
+
+function dayLabel(dateStr, idx) {
+  const d = new Date(dateStr);
+  return `${idx+1}일차 (${d.getMonth()+1}/${d.getDate()})`;
+}
+
+function renderTabs() {
+  const tabsEl = document.getElementById("day-tabs");
+  tabsEl.innerHTML = window.CONFIG.EVENT_DATES.map((d, i) =>
+    `<button data-date="${d}" class="${d === currentDate ? "active" : ""}">${dayLabel(d, i)}</button>`
+  ).join("");
+  tabsEl.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      currentDate = btn.dataset.date;
+      renderTabs();
+      document.querySelectorAll(".day-col").forEach(el => {
+        el.classList.toggle("active", el.dataset.date === currentDate);
+      });
+    });
+  });
+}
+
+// 모바일에서는 선택된 하루만 보이고(day-tabs로 전환), PC에서는 CSS가
+// .day-col을 전부 강제로 보이게 해서 3일이 나란히 표시됩니다.
+function renderSchedule() {
+  const grid = document.getElementById("schedule-grid");
+  grid.innerHTML = window.CONFIG.EVENT_DATES.map((d, i) => {
+    const rows = ALL.filter(r => r.date === d).sort((a,b) => a.time.localeCompare(b.time));
+    const body = rows.length
+      ? rows.map(r => `
+          <div class="timeline-item">
+            <div class="t">${r.time}</div>
+            <div class="content">
+              <div class="title">${r.title}</div>
+              ${r.speaker ? `<div class="speaker">${r.speaker}</div>` : ""}
+            </div>
+          </div>
+        `).join("")
+      : '<div class="empty">등록된 일정이 없습니다.</div>';
+    return `
+      <div class="day-col card ${d === currentDate ? "active" : ""}" data-date="${d}">
+        <div class="day-col-title">${dayLabel(d, i)}</div>
+        ${body}
+      </div>
+    `;
+  }).join("");
+}
+
+async function load() {
+  const res = await API.getSchedule();
+  ALL = res.ok ? res.list : [];
+  currentDate = window.CONFIG.EVENT_DATES[0];
+  renderTabs();
+  renderSchedule();
+}
+load();
+setInterval(load, 30000); // 30초마다 변경사항 자동 반영
+</script>
+</body>
+</html>

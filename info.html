@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>기타 안내 · 2026년 정책연수</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a class="back" href="index.html">‹</a>
+    <div>
+      <h1>기타 안내</h1>
+      <div class="sub">배너를 누르면 새 창에서 상세 내용이 열립니다</div>
+    </div>
+  </div>
+
+  <div class="grid-2" id="banner-grid"></div>
+</div>
+
+<script src="assets/config.js"></script>
+<script src="assets/mockdata.js"></script>
+<script src="assets/api.js"></script>
+<script>
+async function load() {
+  const res = await API.getBanners();
+  const wrap = document.getElementById("banner-grid");
+  if (!res.ok || !res.list.length) { wrap.innerHTML = '<div class="empty">등록된 안내가 없습니다.</div>'; return; }
+  wrap.innerHTML = res.list.map(b => `
+    <a class="banner" href="${b.url || '#'}" target="_blank" rel="noopener"
+       onclick="${b.url ? '' : "event.preventDefault(); alert('아직 파일/링크가 등록되지 않았습니다.');"}">
+      <div class="emoji">${b.emoji}</div>
+      <div class="title">${b.title}</div>
+    </a>
+  `).join("");
+}
+load();
+</script>
+</body>
+</html>

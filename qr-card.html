@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>개인 QR 명함 · 2026년 정책연수</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a class="back" href="index.html">‹</a>
+    <div>
+      <h1>개인 QR 명함 · 네트워킹</h1>
+      <div class="sub">서로의 QR을 찍고 명함을 교환해보세요</div>
+    </div>
+  </div>
+
+  <!-- 1) 명함 만들기/수정 화면 -->
+  <div id="create-view">
+    <div class="notice info">사번과 성명을 입력하면 그 자리에서 바로 내 명함을 만들 수 있어요. (구글 계정 불필요)</div>
+
+    <div class="card" id="identify-form">
+      <div class="field">
+        <label>사번</label>
+        <input type="text" id="ci-empid" inputmode="numeric" placeholder="예: 10001 (테스트: 10001~10005)">
+      </div>
+      <div class="field">
+        <label>성명</label>
+        <input type="text" id="ci-name" placeholder="예: 김민준">
+      </div>
+      <div id="ci-result"></div>
+      <button class="btn btn-primary" id="ci-check-btn">확인하고 이어서 작성하기</button>
+    </div>
+
+    <div class="card" id="detail-form" style="display:none; margin-top:14px;">
+      <div class="field">
+        <label>소속</label>
+        <input type="text" id="d-org" placeholder="소속">
+      </div>
+      <div class="field">
+        <label>직급</label>
+        <input type="text" id="d-role" placeholder="예: 주임, 대리, 팀장">
+      </div>
+      <div class="field">
+        <label>키워드 (쉼표로 구분)</label>
+        <input type="text" id="d-keywords" placeholder="예: 기획, 등산, 커피">
+      </div>
+      <div class="field">
+        <label>한줄소개</label>
+        <textarea id="d-intro" placeholder="나를 소개하는 한 줄"></textarea>
+      </div>
+      <div id="detail-result"></div>
+      <button class="btn btn-primary" id="save-profile-btn">명함 만들기</button>
+      <div class="btn-row">
+        <button class="btn btn-outline" id="cancel-edit-btn" style="display:none;">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2) 메인 화면 (명함 완성 후) -->
+  <div id="main-view" class="qr-grid" style="display:none;">
+    <div class="qr-col-left">
+      <div class="card">
+        <div class="profile-card" id="my-profile"></div>
+        <div id="photo-upload-section" style="display:none; margin-top:14px;">
+          <div class="notice warning">아직 프로필 사진이 없습니다. 사진을 등록하면 명함이 더 잘 기억됩니다.</div>
+          <input type="file" id="photo-input" accept="image/*" capture="user" style="display:none;">
+          <button class="btn btn-secondary" id="btn-add-photo">📷 사진 등록하기</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-outline" id="btn-edit-profile">✏️ 내 정보 수정하기</button>
+        </div>
+      </div>
+
+      <div class="qr-wrap">
+        <div id="qrcode"></div>
+      </div>
+    </div>
+
+    <div class="qr-col-right">
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="btn-open-scanner">📷 상대방 QR 스캔하기</button>
+      </div>
+      <div class="btn-row">
+        <a class="btn btn-primary" href="leaderboard.html">🏆 네트워킹 랭킹 보기</a>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-outline" id="btn-switch-user">다른 사번으로 전환</button>
+      </div>
+
+      <div id="scanner-view" style="display:none; margin-top:16px;">
+        <div class="scanner-box"><div id="qr-reader"></div></div>
+        <button class="btn btn-secondary" id="btn-close-scanner">스캔 닫기</button>
+      </div>
+
+      <div class="section-title" style="margin-top:20px;">
+        <span>내가 찍은 사람들</span>
+        <span class="count" id="scan-count">0명</span>
+      </div>
+      <div class="card" id="scan-list" style="padding:6px 14px;">
+        <div class="empty">아직 스캔한 명함이 없습니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 프로필 상세 모달 -->
+  <div class="modal-overlay" id="profile-modal" style="display:none;">
+    <div class="modal-sheet">
+      <div class="profile-card" id="modal-profile"></div>
+      <button class="btn btn-primary" style="margin-top:16px;" id="modal-close">닫기</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/mockdata.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/util.js"></script>
+<script>
+let html5QrCode = null;
+let isEditingExisting = false; // '내 정보 수정하기'로 들어온 경우 true (취소 시 main-view로 복귀)
+
+function renderProfile(container, p) {
+  container.innerHTML = `
+    <div class="avatar">${p.photo ? `<img src="${p.photo}">` : initials(p.name)}</div>
+    <div class="info">
+      <div class="name">${p.name}</div>
+      <div class="role">${p.org || ""} ${p.role ? "· " + p.role : ""}</div>
+      <div class="keywords">${(p.keywords||[]).map(k => `<span class="badge">#${k}</span>`).join("")}</div>
+    </div>
+  `;
+  if (p.intro) {
+    container.insertAdjacentHTML("beforeend", `<div style="width:100%;margin-top:10px;font-size:13px;color:var(--text-dim);">${p.intro}</div>`);
+  }
+}
+
+// 사진 파일을 축소·압축해서 base64로 반환 (업로드 용량을 줄여 650명이 몰려도 부담 적게)
+function resizeImageToBase64(file, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = () => {
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height && width > maxDim) { height = Math.round(height * maxDim / width); width = maxDim; }
+        else if (height > maxDim) { width = Math.round(width * maxDim / height); height = maxDim; }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL("image/jpeg", quality || 0.75);
+        resolve(dataUrl.split(",")[1]); // base64 부분만
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function showCreateView() {
+  document.getElementById("main-view").style.display = "none";
+  document.getElementById("create-view").style.display = "block";
+}
+
+function showMainView() {
+  document.getElementById("create-view").style.display = "none";
+  document.getElementById("main-view").style.display = "block";
+}
+
+async function loadMain() {
+  const empId = myEmpId();
+  const res = await API.getProfileByEmpId(empId);
+  if (!res.ok) {
+    // 아직 명함을 완성하지 않은 상태 — 만들기 화면으로 돌려보냄
+    showCreateView();
+    return;
+  }
+  showMainView();
+  renderProfile(document.getElementById("my-profile"), res.profile);
+  document.getElementById("photo-upload-section").style.display = res.profile.photo ? "none" : "block";
+
+  document.getElementById("qrcode").innerHTML = "";
+  const scanUrl = `${location.origin}${location.pathname}?scan=${encodeURIComponent(empId)}`;
+  new QRCode(document.getElementById("qrcode"), { text: scanUrl, width: 200, height: 200 });
+
+  refreshScans();
+}
+
+async function refreshScans() {
+  const res = await API.getMyScans(myEmpId());
+  const wrap = document.getElementById("scan-list");
+  const countEl = document.getElementById("scan-count");
+  if (!res.ok || !res.list.length) {
+    wrap.innerHTML = '<div class="empty">아직 스캔한 명함이 없습니다.</div>';
+    countEl.textContent = "0명";
+    return;
+  }
+  countEl.textContent = res.list.length + "명";
+  wrap.innerHTML = res.list.map((p, i) => `
+    <div class="list-item" data-idx="${i}" style="cursor:pointer;">
+      <div class="avatar">${p.photo ? `<img src="${p.photo}">` : initials(p.name)}</div>
+      <div>
+        <div class="name">${p.name}</div>
+        <div class="meta">${p.org || ""}</div>
+      </div>
+      <div class="time">${fmtTime(p.scannedAt)}</div>
+    </div>
+  `).join("");
+  wrap.querySelectorAll(".list-item").forEach(el => {
+    el.addEventListener("click", () => {
+      const p = res.list[+el.dataset.idx];
+      document.getElementById("profile-modal").style.display = "flex";
+      renderProfile(document.getElementById("modal-profile"), p);
+    });
+  });
+}
+
+async function handleScannedId(scannedId) {
+  const res = await API.logScan({ scannerId: myEmpId(), scannedId });
+  if (res.ok) {
+    document.getElementById("profile-modal").style.display = "flex";
+    renderProfile(document.getElementById("modal-profile"), res.profile);
+    refreshScans();
+  } else {
+    alert(res.message || "스캔 처리에 실패했습니다.");
+  }
+}
+
+// ---------- 1단계: 사번/성명 확인 ----------
+async function runIdentifyCheck(empId, name) {
+  const resEl = document.getElementById("ci-result");
+  const btn = document.getElementById("ci-check-btn");
+  if (!empId || !name) { resEl.innerHTML = '<div class="notice error">사번과 성명을 모두 입력해주세요.</div>'; return; }
+  btn.disabled = true; btn.textContent = "확인 중...";
+  const res = await API.getOrInitProfile({ empId, name });
+  btn.disabled = false; btn.textContent = "확인하고 이어서 작성하기";
+  if (!res.ok) { resEl.innerHTML = `<div class="notice error">${res.message}</div>`; return; }
+
+  resEl.innerHTML = res.isNew
+    ? '<div class="notice success">명단 확인 완료! 아래 정보를 채우고 명함을 만들어주세요.</div>'
+    : '<div class="notice success">기존 명함을 불러왔어요. 내용을 수정하고 저장할 수 있어요.</div>';
+
+  setMyEmpId(empId);
+  setMyName(name);
+
+  document.getElementById("d-org").value = res.profile.org || "";
+  document.getElementById("d-role").value = res.profile.role || "";
+  document.getElementById("d-keywords").value = res.profile.keywords || "";
+  document.getElementById("d-intro").value = res.profile.intro || "";
+  document.getElementById("detail-form").style.display = "block";
+  document.getElementById("cancel-edit-btn").style.display = isEditingExisting ? "flex" : "none";
+}
+
+document.getElementById("ci-check-btn").addEventListener("click", () => {
+  const empId = document.getElementById("ci-empid").value.trim();
+  const name = document.getElementById("ci-name").value.trim();
+  runIdentifyCheck(empId, name);
+});
+
+// ---------- 2단계: 실제 저장 ----------
+document.getElementById("save-profile-btn").addEventListener("click", async () => {
+  const empId = document.getElementById("ci-empid").value.trim();
+  const name = document.getElementById("ci-name").value.trim();
+  const org = document.getElementById("d-org").value.trim();
+  const role = document.getElementById("d-role").value.trim();
+  const keywords = document.getElementById("d-keywords").value.trim();
+  const intro = document.getElementById("d-intro").value.trim();
+  const resEl = document.getElementById("detail-result");
+  const btn = document.getElementById("save-profile-btn");
+
+  btn.disabled = true; btn.textContent = "저장 중...";
+  const res = await API.saveProfile({ empId, name, org, role, keywords, intro });
+  btn.disabled = false; btn.textContent = "명함 만들기";
+
+  if (!res.ok) { resEl.innerHTML = `<div class="notice error">${res.message}</div>`; return; }
+  resEl.innerHTML = "";
+  loadMain();
+});
+
+document.getElementById("cancel-edit-btn").addEventListener("click", () => {
+  showMainView();
+});
+
+document.getElementById("btn-edit-profile").addEventListener("click", async () => {
+  isEditingExisting = true;
+  showCreateView();
+  document.getElementById("ci-empid").value = myEmpId();
+  document.getElementById("ci-name").value = myName();
+  await runIdentifyCheck(myEmpId(), myName());
+});
+
+document.getElementById("btn-switch-user").addEventListener("click", () => {
+  localStorage.removeItem("gn2026_my_empid");
+  localStorage.removeItem("gn2026_my_name");
+  location.href = "qr-card.html";
+});
+
+document.getElementById("modal-close").addEventListener("click", () => {
+  document.getElementById("profile-modal").style.display = "none";
+});
+
+document.getElementById("btn-open-scanner").addEventListener("click", () => {
+  document.getElementById("scanner-view").style.display = "block";
+  html5QrCode = new Html5Qrcode("qr-reader");
+  html5QrCode.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: 220 },
+    (decodedText) => {
+      try {
+        const url = new URL(decodedText);
+        const scannedId = url.searchParams.get("scan");
+        if (scannedId) {
+          html5QrCode.stop();
+          document.getElementById("scanner-view").style.display = "none";
+          handleScannedId(scannedId);
+        }
+      } catch (e) { /* QR이 우리 형식이 아니면 무시 */ }
+    },
+    () => {}
+  ).catch(err => {
+    alert("카메라를 시작할 수 없습니다. 카메라 권한을 허용해주세요.\n" + err);
+  });
+});
+
+document.getElementById("btn-close-scanner").addEventListener("click", () => {
+  if (html5QrCode) html5QrCode.stop().catch(()=>{});
+  document.getElementById("scanner-view").style.display = "none";
+});
+
+document.getElementById("btn-add-photo").addEventListener("click", () => {
+  document.getElementById("photo-input").click();
+});
+
+document.getElementById("photo-input").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const btn = document.getElementById("btn-add-photo");
+  btn.disabled = true; btn.textContent = "업로드 중...";
+  try {
+    const base64 = await resizeImageToBase64(file, 640, 0.75);
+    const res = await API.uploadPhoto({ empId: myEmpId(), filename: file.name, mimeType: "image/jpeg", dataBase64: base64 });
+    if (res.ok) {
+      loadMain();
+    } else {
+      alert(res.message || "사진 업로드에 실패했습니다.");
+    }
+  } catch (err) {
+    alert("사진 처리 중 오류가 발생했습니다.");
+  } finally {
+    btn.disabled = false; btn.textContent = "📷 사진 등록하기";
+  }
+});
+
+// 초기 진입 처리
+// - ?scan=ID : 타인 QR 링크를 직접 눌러서 들어온 경우
+// - ?empId=..&name=.. : 출석체크 페이지에서 "QR 명함 만들러 가기"로 넘어온 경우 (자동으로 확인단계까지 진행)
+(function init() {
+  const params = new URLSearchParams(location.search);
+  const scanTarget = params.get("scan");
+  const fromEmpId = params.get("empId");
+  const fromName = params.get("name");
+  const existing = myEmpId();
+
+  if (existing) {
+    loadMain().then(() => {
+      if (scanTarget && scanTarget !== existing) handleScannedId(scanTarget);
+    });
+  } else if (fromEmpId && fromName) {
+    document.getElementById("ci-empid").value = fromEmpId;
+    document.getElementById("ci-name").value = fromName;
+    runIdentifyCheck(fromEmpId, fromName);
+  } else if (scanTarget) {
+    document.getElementById("ci-result").innerHTML =
+      '<div class="notice info">먼저 본인 사번·성명을 입력해서 내 명함을 만들어주세요. 그 다음 자동으로 상대방 명함이 기록됩니다.</div>';
+  }
+})();
+</script>
+</body>
+</html>

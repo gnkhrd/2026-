@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>출석체크 · 2026년 정책연수</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a class="back" href="index.html">‹</a>
+    <div>
+      <h1>출석체크</h1>
+      <div class="sub">사번과 성명을 입력하면 출석 인증됩니다</div>
+    </div>
+  </div>
+
+  <div id="window-notice"></div>
+
+  <div class="card">
+    <div class="field">
+      <label>사번</label>
+      <input type="text" id="empId" inputmode="numeric" placeholder="예: 10001">
+    </div>
+    <div class="field">
+      <label>성명</label>
+      <input type="text" id="name" placeholder="예: 김민준">
+    </div>
+    <div class="field">
+      <label>소속 (선택)</label>
+      <input type="text" id="org" placeholder="예: 충남지부">
+    </div>
+    <div id="result"></div>
+    <button class="btn btn-primary" id="submit-btn">출석 인증하기</button>
+  </div>
+
+  <div class="section-title">
+    <span>출석 현황 요약</span>
+  </div>
+  <div class="att-visual-grid">
+    <div class="card chart-card">
+      <div class="chart-wrap-sm"><canvas id="org-donut"></canvas></div>
+      <div class="chart-caption">권역(소속)별 출석 인원</div>
+    </div>
+    <div class="card">
+      <div class="gauge-label">전체 출석 인원</div>
+      <div class="gauge-bar"><div class="gauge-fill" id="gauge-fill" style="width:0%"></div></div>
+      <div class="gauge-text" id="gauge-text">0 / 0명</div>
+      <div class="chart-wrap-sm" style="margin-top:16px;"><canvas id="role-bar"></canvas></div>
+      <div class="chart-caption">직급별 인원수</div>
+    </div>
+  </div>
+
+  <div class="section-title">
+    <span>전체 출석 현황</span>
+    <span class="count" id="att-count">0명</span>
+  </div>
+
+  <div class="card mobile-only" id="att-list" style="padding:6px 14px;">
+    <div class="empty">아직 출석자가 없습니다.</div>
+  </div>
+
+  <div class="card desktop-only" style="padding:14px;">
+    <div class="att-table-wrap">
+      <table class="att-table" id="att-table">
+        <thead>
+          <tr><th style="width:56px;">번호</th><th>성명</th><th>소속</th><th style="width:110px;">출석시각</th></tr>
+        </thead>
+        <tbody id="att-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/mockdata.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/util.js"></script>
+<script>
+let orgDonutChart = null, roleBarChart = null;
+const CHART_COLORS = ["#89A230", "#685A55", "#B9822C", "#6E8B2A", "#52463F", "#C9971C", "#8C8C8C"];
+
+function countBy(list, key) {
+  const map = {};
+  list.forEach(item => {
+    const k = item[key] || "(미상)";
+    map[k] = (map[k] || 0) + 1;
+  });
+  return map;
+}
+
+function renderOrgDonut(list) {
+  const canvas = document.getElementById("org-donut");
+  if (typeof Chart === "undefined") return;
+  const counts = countBy(list, "org");
+  const labels = Object.keys(counts);
+  const data = Object.values(counts);
+  if (orgDonutChart) orgDonutChart.destroy();
+  orgDonutChart = new Chart(canvas, {
+    type: "doughnut",
+    data: { labels, datasets: [{ data, backgroundColor: labels.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]) }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } } } }
+  });
+}
+
+function renderRoleBar(list) {
+  const canvas = document.getElementById("role-bar");
+  if (typeof Chart === "undefined") return;
+  const counts = countBy(list, "role");
+  const labels = Object.keys(counts);
+  const data = Object.values(counts);
+  if (roleBarChart) roleBarChart.destroy();
+  roleBarChart = new Chart(canvas, {
+    type: "bar",
+    data: { labels, datasets: [{ label: "인원", data, backgroundColor: "#685A55", borderRadius: 6, maxBarThickness: 30 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+}
+
+async function refreshVisuals(list) {
+  renderOrgDonut(list);
+  renderRoleBar(list);
+  const rc = await API.getRosterCount();
+  const total = rc.ok ? rc.count : 0;
+  const pct = total ? Math.min(100, Math.round((list.length / total) * 100)) : 0;
+  document.getElementById("gauge-fill").style.width = pct + "%";
+  document.getElementById("gauge-text").textContent = `${list.length} / ${total || "?"}명 (${pct}%)`;
+}
+
+async function refreshList() {
+  const res = await API.getAttendanceList();
+  const wrap = document.getElementById("att-list");
+  const tbody = document.getElementById("att-table-body");
+  const countEl = document.getElementById("att-count");
+  if (!res.ok || !res.list.length) {
+    wrap.innerHTML = '<div class="empty">아직 출석자가 없습니다.</div>';
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">아직 출석자가 없습니다.</td></tr>';
+    countEl.textContent = "0명";
+    refreshVisuals(res.ok ? res.list : []);
+    return;
+  }
+  countEl.textContent = res.list.length + "명";
+  refreshVisuals(res.list);
+
+  // 모바일: 카드형 리스트
+  wrap.innerHTML = res.list.map(a => `
+    <div class="list-item">
+      <div class="avatar">${initials(a.name)}</div>
+      <div>
+        <div class="name">${a.name}</div>
+        <div class="meta">${a.org || ""}</div>
+      </div>
+      <div class="time">${fmtTime(a.time)}</div>
+    </div>
+  `).join("");
+
+  // PC: 더 많은 인원이 한 화면에 보이는 표
+  tbody.innerHTML = res.list.map((a, i) => `
+    <tr>
+      <td>${res.list.length - i}</td>
+      <td>${a.name}</td>
+      <td>${a.org || ""}</td>
+      <td>${fmtTime(a.time)}</td>
+    </tr>
+  `).join("");
+}
+
+function checkWindow() {
+  const w = isWithinAttendanceWindow();
+  const el = document.getElementById("window-notice");
+  const btn = document.getElementById("submit-btn");
+  if (!w.ok) {
+    el.innerHTML = `<div class="notice warning">${w.reason}</div>`;
+    btn.disabled = true;
+  } else {
+    el.innerHTML = "";
+    btn.disabled = false;
+  }
+}
+
+document.getElementById("submit-btn").addEventListener("click", async () => {
+  const empId = document.getElementById("empId").value.trim();
+  const name = document.getElementById("name").value.trim();
+  const org = document.getElementById("org").value.trim();
+  const resultEl = document.getElementById("result");
+  if (!empId || !name) {
+    resultEl.innerHTML = '<div class="notice error">사번과 성명을 모두 입력해주세요.</div>';
+    return;
+  }
+  const btn = document.getElementById("submit-btn");
+  btn.disabled = true; btn.textContent = "확인 중...";
+  const res = await API.checkIn({ empId, name, org });
+  btn.disabled = false; btn.textContent = "출석 인증하기";
+  if (res.ok) {
+    const qrUrl = `qr-card.html?empId=${encodeURIComponent(empId)}&name=${encodeURIComponent(name)}`;
+    resultEl.innerHTML = `
+      <div class="notice success">출석 인증이 완료되었습니다. 반갑습니다!</div>
+      <a class="btn btn-primary" href="${qrUrl}" style="margin-bottom:14px;">🪪 내 QR 명함 만들러 가기</a>
+    `;
+    refreshList();
+  } else {
+    resultEl.innerHTML = `<div class="notice error">${res.message}</div>`;
+  }
+});
+
+checkWindow();
+refreshList();
+setInterval(refreshList, 8000);
+</script>
+</body>
+</html>

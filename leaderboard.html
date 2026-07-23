@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>네트워킹 랭킹전 · 2026년 정책연수</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a class="back" href="qr-card.html">‹</a>
+    <div>
+      <h1>🏆 네트워킹 랭킹전</h1>
+      <div class="sub">QR 명함을 많이, 넓게 교환할수록 점수가 올라가요</div>
+    </div>
+  </div>
+
+  <div id="rule-notice" class="notice info"></div>
+
+  <div id="need-card-notice" class="notice warning" style="display:none;">
+    아직 내 QR 명함이 없어요. <a href="qr-card.html" style="text-decoration:underline;font-weight:700;">먼저 명함을 만들면</a> 내 순위가 표시됩니다.
+  </div>
+
+  <div class="card me-card" id="me-card" style="display:none;">
+    <div class="rank-big" id="me-rank">-<span class="unit">순위</span></div>
+    <div class="stats">
+      <div class="stat"><div class="num" id="me-score">0</div><div class="label">점수</div></div>
+      <div class="stat"><div class="num" id="me-count">0</div><div class="label">스캔 인원</div></div>
+      <div class="stat"><div class="num" id="me-cross">0</div><div class="label">타 소속 교류</div></div>
+    </div>
+  </div>
+
+  <!-- 네트워크 활동 스냅샷: TOP10 그래프 + 통계카드 4개 -->
+  <div class="lb-visual-grid">
+    <div class="card chart-card">
+      <div class="section-title" style="margin-top:0;"><span>TOP 10 스캔 그래프</span></div>
+      <div class="chart-wrap"><canvas id="top10-chart"></canvas></div>
+    </div>
+    <div class="stat-grid-4">
+      <div class="stat-box"><div class="stat-num" id="stat-participants">0</div><div class="stat-label">누적 참여인원</div></div>
+      <div class="stat-box"><div class="stat-num" id="stat-total-scans">0</div><div class="stat-label">누적 스캔 건수</div></div>
+      <div class="stat-box"><div class="stat-num" id="stat-max-scans">0</div><div class="stat-label">최다 스캔 인원</div></div>
+      <div class="stat-box"><div class="stat-num" id="stat-avg-scans">0</div><div class="stat-label">평균 스캔 인원</div></div>
+    </div>
+  </div>
+
+  <div class="lb-grid">
+    <div>
+      <div class="section-title">
+        <span>개인 TOP 10</span>
+        <span class="count" id="top10-count">0명</span>
+      </div>
+      <div class="card" id="top10-list" style="padding:6px 14px;">
+        <div class="empty">아직 스캔 기록이 없습니다.</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">
+        <span>소속(지부/부서) 대항전</span>
+        <span class="count" id="org-count">0곳</span>
+      </div>
+      <div class="card" id="org-list" style="padding:6px 14px;">
+        <div class="empty">아직 스캔 기록이 없습니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-row" style="margin-top:6px;">
+    <button class="btn btn-secondary" id="btn-refresh">🔄 새로고침</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/mockdata.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/util.js"></script>
+<script>
+let top10Chart = null;
+
+function renderTop10Chart(top10, myEmpId) {
+  const canvas = document.getElementById("top10-chart");
+  if (typeof Chart === "undefined") { canvas.replaceWith(Object.assign(document.createElement("div"), { className: "empty", textContent: "그래프 라이브러리를 불러오지 못했습니다 (오프라인?)." })); return; }
+  const labels = top10.map(r => r.name + (r.empId === myEmpId ? " (나)" : ""));
+  const data = top10.map(r => r.score);
+  if (top10Chart) top10Chart.destroy();
+  top10Chart = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        label: "점수",
+        data,
+        backgroundColor: top10.map((_, i) => i === 0 ? "#89A230" : "rgba(137,162,48,0.55)"),
+        borderRadius: 6,
+        maxBarThickness: 34
+      }]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, ticks: { precision: 0 } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+function ordinalBadge(rank) {
+  if (rank === 1) return "🥇";
+  if (rank === 2) return "🥈";
+  if (rank === 3) return "🥉";
+  return rank;
+}
+
+async function loadLeaderboard() {
+  const empId = myEmpId();
+  const res = await API.getLeaderboard(empId);
+  if (!res.ok) return;
+
+  // 점수 규칙 안내 (Code.gs/api.js의 조정 가능한 기본값을 그대로 보여줌)
+  const c = res.config;
+  const milestoneTxt = c.MILESTONES.map(m => `${m.count}명 +${m.bonus}점`).join(" · ");
+  document.getElementById("rule-notice").innerHTML =
+    `스캔 1명당 <b>+${c.POINTS_PER_SCAN}점</b>, 다른 소속(지부/부서) 사람이면 <b>+${c.CROSS_ORG_BONUS}점</b> 추가! ` +
+    `누적 스캔 인원 달성 보너스: ${milestoneTxt}`;
+
+  // 내 순위
+  if (empId && res.me) {
+    document.getElementById("need-card-notice").style.display = "none";
+    document.getElementById("me-card").style.display = "flex";
+    document.getElementById("me-rank").innerHTML = (res.me.rank ? ordinalBadge(res.me.rank) : "-") + '<span class="unit">순위</span>';
+    document.getElementById("me-score").textContent = res.me.score;
+    document.getElementById("me-count").textContent = res.me.uniqueCount;
+    document.getElementById("me-cross").textContent = res.me.crossOrgCount;
+  } else if (!empId) {
+    document.getElementById("me-card").style.display = "none";
+    document.getElementById("need-card-notice").style.display = "block";
+  }
+
+  // 통계 카드 4개
+  if (res.stats) {
+    document.getElementById("stat-participants").textContent = res.stats.totalParticipants + "명";
+    document.getElementById("stat-total-scans").textContent = res.stats.totalScans + "건";
+    document.getElementById("stat-max-scans").textContent = res.stats.maxScans + "명";
+    document.getElementById("stat-avg-scans").textContent = res.stats.avgScans + "명";
+  }
+
+  // TOP 10 그래프
+  if (res.top10.length) {
+    renderTop10Chart(res.top10, empId);
+  } else {
+    document.querySelector(".chart-wrap").innerHTML = '<div class="empty">아직 스캔 기록이 없습니다.</div>';
+  }
+
+  // TOP 10
+  const top10Wrap = document.getElementById("top10-list");
+  document.getElementById("top10-count").textContent = res.top10.length + "명";
+  if (!res.top10.length) {
+    top10Wrap.innerHTML = '<div class="empty">아직 스캔 기록이 없습니다.</div>';
+  } else {
+    top10Wrap.innerHTML = res.top10.map((r, i) => `
+      <div class="list-item rank-item rank-${i + 1}">
+        <div class="rank-num">${ordinalBadge(i + 1)}</div>
+        <div class="avatar">${initials(r.name)}</div>
+        <div>
+          <div class="name">${r.name}${r.empId === empId ? " (나)" : ""}</div>
+          <div class="meta">${r.org || ""}</div>
+        </div>
+        <div class="score">${r.score}<span class="unit">점</span></div>
+      </div>
+    `).join("");
+  }
+
+  // 소속별 대항전
+  const orgWrap = document.getElementById("org-list");
+  document.getElementById("org-count").textContent = res.orgRanking.length + "곳";
+  if (!res.orgRanking.length) {
+    orgWrap.innerHTML = '<div class="empty">아직 스캔 기록이 없습니다.</div>';
+  } else {
+    orgWrap.innerHTML = res.orgRanking.map((o, i) => `
+      <div class="org-rank-item">
+        <div class="rank-num">${ordinalBadge(i + 1)}</div>
+        <div>
+          <div class="org-name">${o.org}</div>
+          <div class="org-meta">참여 ${o.memberCount}명 · 누적 스캔 ${o.totalScans}건</div>
+        </div>
+        <div class="score">${o.totalScore}<span class="unit">점</span></div>
+      </div>
+    `).join("");
+  }
+}
+
+document.getElementById("btn-refresh").addEventListener("click", loadLeaderboard);
+loadLeaderboard();
+</script>
+</body>
+</html>
