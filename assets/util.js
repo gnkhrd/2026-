@@ -24,6 +24,27 @@ function nowHHMM() {
   return `${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
+// 구글시트의 날짜 셀이 자동으로 날짜형(예: "2026-09-01T00:00:00.000Z")으로 바뀌어 오더라도
+// 항상 "YYYY-MM-DD" 형태로 통일해서 비교할 수 있게 해주는 함수. Schedule 시트 date 값 비교에 사용.
+function normDate(v) {
+  if (!v) return "";
+  const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : String(v).trim();
+}
+
+// 대한민국 표준시(KST) 기준 오늘 날짜/현재 시각.
+// 기기(휴대폰/PC)의 시간대 설정이 다르게 되어 있어도 항상 한국 시간 기준으로 계산됩니다.
+function nowKST() {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false
+  });
+  const parts = {};
+  fmt.formatToParts(new Date()).forEach(p => { parts[p.type] = p.value; });
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, hhmm: `${parts.hour}:${parts.minute}` };
+}
+
 function isWithinAttendanceWindow() {
   if (!window.CONFIG.ENFORCE_ATTENDANCE_WINDOW) return { ok: true };
   const today = todayStr();

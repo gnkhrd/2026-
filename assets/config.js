@@ -18,5 +18,12 @@ window.CONFIG = {
   ],
 
   // 시간대 제한을 끄고 싶으면 false로 (테스트 중엔 false 권장)
-  ENFORCE_ATTENDANCE_WINDOW: false
+  ENFORCE_ATTENDANCE_WINDOW: false,
+
+  // 홈 화면 "오늘의 일정"에 뽑아서 보여줄 항목을 고르는 키워드입니다.
+  // Google Sheet의 Schedule 탭에 tag 컬럼을 추가하고, 그 값이 아래 키워드 중 하나와 정확히 같은 행만 홈 화면에 나열됩니다.
+  // 쉼표(,)로 여러 개를 나열할 수 있습니다. 각 세션 행의 tag 칸에는 그 세션에 맞는 키워드 하나만 적어주세요.
+  // (예: "개회예배" 세션의 tag 칸엔 "개회예배"만, "기조강연" 세션의 tag 칸엔 "기조강연"만 — 같은 행에 다 적는 게 아닙니다.)
+  // 일정표(schedule.html) 페이지는 이 키워드와 무관하게 전체 일정을 날짜별로 그대로 보여줍니다.
+  HOME_SCHEDULE_KEYWORD: "개회예배,비전공유,기조강연,주제및사례발표"
 };

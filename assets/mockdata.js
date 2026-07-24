@@ -41,18 +41,19 @@ window.MOCK_SEED = {
     { scannerId: "10004", scannedId: "10005", time: "2026-09-01T15:10:00.000Z" },
     { scannerId: "10005", scannedId: "10004", time: "2026-09-01T15:11:00.000Z" }
   ],
+  // tag: 홈 화면 "오늘의 일정"에 뽑아서 보여줄 항목 표시용 키워드 (선택 입력, config.js의 HOME_SCHEDULE_KEYWORD와 매칭)
   schedule: [
-    { date: "2026-09-01", time: "12:30", title: "등록 및 접수", speaker: "" },
-    { date: "2026-09-01", time: "13:00", title: "개회예배", speaker: "이일하 이사장" },
-    { date: "2026-09-01", time: "13:40", title: "직원소개", speaker: "" },
-    { date: "2026-09-01", time: "14:00", title: "비전공유", speaker: "사무총장" },
-    { date: "2026-09-01", time: "14:50", title: "특별강연", speaker: "협의중" },
-    { date: "2026-09-01", time: "16:20", title: "기조강연 — 콜렉티브 임팩트", speaker: "이봉주 교수" },
-    { date: "2026-09-02", time: "09:30", title: "주제·사례발표 (GN 파이어사이드 챗)", speaker: "" },
-    { date: "2026-09-02", time: "13:30", title: "공동체 프로그램 (G-BU-Ting)", speaker: "" },
-    { date: "2026-09-03", time: "09:30", title: "공동체활동 결과공유", speaker: "" },
-    { date: "2026-09-03", time: "10:40", title: "장기근속 시상", speaker: "" },
-    { date: "2026-09-03", time: "11:40", title: "폐회예배", speaker: "" }
+    { date: "2026-09-01", time: "12:30", title: "등록 및 접수", speaker: "", tag: "오늘" },
+    { date: "2026-09-01", time: "13:00", title: "개회예배", speaker: "이일하 이사장", tag: "오늘" },
+    { date: "2026-09-01", time: "13:40", title: "직원소개", speaker: "", tag: "오늘" },
+    { date: "2026-09-01", time: "14:00", title: "비전공유", speaker: "사무총장", tag: "" },
+    { date: "2026-09-01", time: "14:50", title: "특별강연", speaker: "협의중", tag: "" },
+    { date: "2026-09-01", time: "16:20", title: "기조강연 — 콜렉티브 임팩트", speaker: "이봉주 교수", tag: "" },
+    { date: "2026-09-02", time: "09:30", title: "주제·사례발표 (GN 파이어사이드 챗)", speaker: "", tag: "" },
+    { date: "2026-09-02", time: "13:30", title: "공동체 프로그램 (G-BU-Ting)", speaker: "", tag: "" },
+    { date: "2026-09-03", time: "09:30", title: "공동체활동 결과공유", speaker: "", tag: "" },
+    { date: "2026-09-03", time: "10:40", title: "장기근속 시상", speaker: "", tag: "" },
+    { date: "2026-09-03", time: "11:40", title: "폐회예배", speaker: "", tag: "" }
   ],
   materials: [
     { title: "기조강연 - 콜렉티브 임팩트", speaker: "이봉주 교수", file: "" },

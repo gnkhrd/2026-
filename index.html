@@ -142,82 +142,90 @@ document.getElementById("event-info").textContent =
 
 function timeToNum(t) { return parseInt(String(t).replace(":", ""), 10); }
 
-function renderTimelineList(container, items, opts) {
-  opts = opts || {};
-  container.innerHTML = items.map((s, i) => `
-    <div class="timeline-item ${opts.currentIdx === i ? "current" : ""} ${opts.nextIdx === i ? "next" : ""}">
-      <div class="t">${s.time}</div>
-      <div class="content">
-        <div class="title">${s.title}${opts.currentIdx === i ? ' <span class="badge live">진행 중</span>' : ""}${opts.nextIdx === i ? ' <span class="badge soon">다음 일정</span>' : ""}</div>
-        <div class="speaker">${s.speaker || ""}</div>
-      </div>
-    </div>
-  `).join("");
-}
-
 async function initHome() {
   const res = await API.getSchedule();
   const badgeEl = document.getElementById("status-badge");
   const sbStatus = document.getElementById("sb-status");
   const sbCurrent = document.getElementById("sb-current");
   const sbNext = document.getElementById("sb-next");
-  const todayLabelEl = document.getElementById("today-date-label");
-  const todayWrap = document.getElementById("today-schedule");
+  const keywordLabelEl = document.getElementById("today-date-label");
+  const listWrap = document.getElementById("today-schedule");
 
-  if (!res.ok || !res.list.length) {
+  const allList = (res.ok ? res.list : []).map(s => ({ ...s, date: normDate(s.date) }));
+
+  // ---------- 1) 상단 "지금 이 순간" — 대한민국 표준시(KST) 기준 실시간 상태 ----------
+  const kst = nowKST();
+  const todayItems = allList
+    .filter(s => s.date === kst.date)
+    .sort((a, b) => timeToNum(a.time) - timeToNum(b.time));
+
+  if (!allList.length) {
     badgeEl.textContent = "📋 일정 정보 없음";
-    todayWrap.innerHTML = '<div class="empty">등록된 일정이 없습니다.</div>';
-    return;
-  }
-
-  const today = todayStr();
-  const todayItems = res.list.filter(s => s.date === today).sort((a, b) => timeToNum(a.time) - timeToNum(b.time));
-
-  if (!todayItems.length) {
-    // 테스트 기간 등 실제 연수 기간이 아닐 때 — Day 1 일정을 미리보기로 보여줌
-    const firstDate = [...new Set(res.list.map(s => s.date))].sort()[0];
-    const preview = res.list.filter(s => s.date === firstDate).sort((a, b) => timeToNum(a.time) - timeToNum(b.time));
-    badgeEl.className = "status-badge off";
-    badgeEl.textContent = "🧪 테스트 모드 · 오늘은 연수 기간이 아니에요";
-    sbStatus.textContent = "🧪 테스트 모드";
+    sbStatus.textContent = "📋 일정 정보 없음";
     sbCurrent.innerHTML = "";
     sbNext.innerHTML = "";
-    todayLabelEl.textContent = `${firstDate} 미리보기`;
-    renderTimelineList(todayWrap, preview, {});
-    return;
-  }
-
-  todayLabelEl.textContent = today + " · " + todayItems.length + "개 일정";
-
-  const nowNum = timeToNum(nowHHMM());
-  let currentIdx = -1, nextIdx = -1;
-  for (let i = 0; i < todayItems.length; i++) {
-    if (timeToNum(todayItems[i].time) <= nowNum) currentIdx = i;
-  }
-  if (currentIdx + 1 < todayItems.length) nextIdx = currentIdx + 1;
-
-  const win = isWithinAttendanceWindow();
-  if (win.ok && window.CONFIG.ENFORCE_ATTENDANCE_WINDOW) {
-    badgeEl.className = "status-badge ok";
-    badgeEl.textContent = "✅ 출석 가능";
-  } else if (currentIdx >= 0) {
-    badgeEl.className = "status-badge now";
-    badgeEl.textContent = "🟢 " + todayItems[currentIdx].title + " 진행 중";
-  } else if (nextIdx === 0) {
-    badgeEl.className = "status-badge soon";
-    badgeEl.textContent = "🕒 곧 시작합니다";
+  } else if (!todayItems.length) {
+    badgeEl.className = "status-badge off";
+    badgeEl.textContent = `🧪 오늘(${kst.date})은 등록된 일정이 없어요`;
+    sbStatus.innerHTML = badgeEl.outerHTML;
+    sbCurrent.innerHTML = "";
+    sbNext.innerHTML = "";
   } else {
-    badgeEl.className = "status-badge done";
-    badgeEl.textContent = "🌙 오늘 일정 종료";
+    const nowNum = timeToNum(kst.hhmm);
+    let currentIdx = -1, nextIdx = -1;
+    for (let i = 0; i < todayItems.length; i++) {
+      if (timeToNum(todayItems[i].time) <= nowNum) currentIdx = i;
+    }
+    if (currentIdx + 1 < todayItems.length) nextIdx = currentIdx + 1;
+
+    const win = isWithinAttendanceWindow();
+    if (win.ok && window.CONFIG.ENFORCE_ATTENDANCE_WINDOW) {
+      badgeEl.className = "status-badge ok";
+      badgeEl.textContent = "✅ 출석 가능";
+    } else if (currentIdx >= 0) {
+      badgeEl.className = "status-badge now";
+      badgeEl.textContent = "🟢 " + todayItems[currentIdx].title + " 진행 중";
+    } else if (nextIdx === 0) {
+      badgeEl.className = "status-badge soon";
+      badgeEl.textContent = "🕒 곧 시작합니다";
+    } else {
+      badgeEl.className = "status-badge done";
+      badgeEl.textContent = "🌙 오늘 일정 종료";
+    }
+
+    sbStatus.innerHTML = badgeEl.outerHTML;
+    sbCurrent.innerHTML = currentIdx >= 0
+      ? `<div class="sb-line"><span class="sb-tag">현재</span> ${todayItems[currentIdx].time} · ${todayItems[currentIdx].title}</div>` : "";
+    sbNext.innerHTML = nextIdx >= 0
+      ? `<div class="sb-line"><span class="sb-tag next">다음</span> ${todayItems[nextIdx].time} · ${todayItems[nextIdx].title}</div>` : "";
   }
 
-  sbStatus.innerHTML = badgeEl.outerHTML;
-  sbCurrent.innerHTML = currentIdx >= 0
-    ? `<div class="sb-line"><span class="sb-tag">현재</span> ${todayItems[currentIdx].time} · ${todayItems[currentIdx].title}</div>` : "";
-  sbNext.innerHTML = nextIdx >= 0
-    ? `<div class="sb-line"><span class="sb-tag next">다음</span> ${todayItems[nextIdx].time} · ${todayItems[nextIdx].title}</div>` : "";
+  // ---------- 2) "오늘의 일정" 목록 — 날짜가 아니라 Schedule 시트의 tag 키워드로 고른 항목만 표시 ----------
+  // HOME_SCHEDULE_KEYWORD는 쉼표로 여러 키워드를 나열할 수 있습니다 (예: "개회예배,기조강연").
+  // Schedule 시트의 tag 칸이 이 중 하나와 정확히 같은 행만 뽑혀서 나열됩니다.
+  const keywords = (window.CONFIG.HOME_SCHEDULE_KEYWORD || "").split(",").map(k => k.trim()).filter(Boolean);
+  const highlighted = allList
+    .filter(s => keywords.includes(String(s.tag || "").trim()))
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
 
-  renderTimelineList(todayWrap, todayItems, { currentIdx, nextIdx });
+  if (!keywords.length) {
+    keywordLabelEl.textContent = "키워드 미설정";
+    listWrap.innerHTML = '<div class="empty">assets/config.js의 HOME_SCHEDULE_KEYWORD 값을 정하면, Schedule 시트에서 같은 tag가 적힌 일정만 여기 나열됩니다.</div>';
+  } else if (!highlighted.length) {
+    keywordLabelEl.textContent = `키워드 "${keywords.join(", ")}" · 0건`;
+    listWrap.innerHTML = `<div class="empty">Schedule 시트의 tag 칸에 "${keywords.join(", ")}" 중 하나가 적힌 일정이 아직 없습니다.</div>`;
+  } else {
+    keywordLabelEl.textContent = `키워드 "${keywords.join(", ")}" · ${highlighted.length}건`;
+    listWrap.innerHTML = highlighted.map(s => `
+      <div class="timeline-item">
+        <div class="t" style="width:58px;">${s.date.slice(5).replace("-", "/")}<br>${s.time}</div>
+        <div class="content">
+          <div class="title">${s.title}</div>
+          <div class="speaker">${s.speaker || ""}</div>
+        </div>
+      </div>
+    `).join("");
+  }
 }
 
 initHome();

@@ -26,16 +26,17 @@
 <script src="assets/util.js"></script>
 <script>
 let ALL = [];
+let DATES = []; // Schedule 시트에 실제로 존재하는 날짜들 (고정된 CONFIG.EVENT_DATES가 아니라 데이터 기준으로 동적 계산)
 let currentDate = "";
 
 function dayLabel(dateStr, idx) {
-  const d = new Date(dateStr);
+  const d = new Date(dateStr + "T00:00:00");
   return `${idx+1}일차 (${d.getMonth()+1}/${d.getDate()})`;
 }
 
 function renderTabs() {
   const tabsEl = document.getElementById("day-tabs");
-  tabsEl.innerHTML = window.CONFIG.EVENT_DATES.map((d, i) =>
+  tabsEl.innerHTML = DATES.map((d, i) =>
     `<button data-date="${d}" class="${d === currentDate ? "active" : ""}">${dayLabel(d, i)}</button>`
   ).join("");
   tabsEl.querySelectorAll("button").forEach(btn => {
@@ -50,10 +51,15 @@ function renderTabs() {
 }
 
 // 모바일에서는 선택된 하루만 보이고(day-tabs로 전환), PC에서는 CSS가
-// .day-col을 전부 강제로 보이게 해서 3일이 나란히 표시됩니다.
+// .day-col을 전부 강제로 보이게 해서 등록된 날짜 수만큼 나란히 표시됩니다.
+// 날짜 목록(DATES)은 Schedule 시트에 실제로 입력된 날짜에서 뽑아오므로, 몇 일치 일정이든 자동으로 반영됩니다.
 function renderSchedule() {
   const grid = document.getElementById("schedule-grid");
-  grid.innerHTML = window.CONFIG.EVENT_DATES.map((d, i) => {
+  if (!DATES.length) {
+    grid.innerHTML = '<div class="empty">등록된 일정이 없습니다. Google Sheet의 Schedule 탭을 확인해주세요.</div>';
+    return;
+  }
+  grid.innerHTML = DATES.map((d, i) => {
     const rows = ALL.filter(r => r.date === d).sort((a,b) => a.time.localeCompare(b.time));
     const body = rows.length
       ? rows.map(r => `
@@ -77,8 +83,9 @@ function renderSchedule() {
 
 async function load() {
   const res = await API.getSchedule();
-  ALL = res.ok ? res.list : [];
-  currentDate = window.CONFIG.EVENT_DATES[0];
+  ALL = (res.ok ? res.list : []).map(r => ({ ...r, date: normDate(r.date) }));
+  DATES = [...new Set(ALL.map(r => r.date))].filter(Boolean).sort();
+  if (!DATES.includes(currentDate)) currentDate = DATES[0] || "";
   renderTabs();
   renderSchedule();
 }
