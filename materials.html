@@ -43,8 +43,14 @@
 <script>
 function driveEmbedUrl(fileIdOrUrl) {
   if (!fileIdOrUrl) return "";
-  if (fileIdOrUrl.startsWith("http")) return fileIdOrUrl;
-  return `https://drive.google.com/file/d/${fileIdOrUrl}/preview`;
+  // 시트에 "보기(view)" 전체 링크를 넣든, 파일ID만 넣든 상관없이
+  // 항상 파일ID만 뽑아서 임베드 전용 주소(/preview)로 변환합니다.
+  // 드라이브의 일반 "보기" 링크는 다른 사이트의 iframe 안에서 열리는 걸
+  // 막아둔 경우가 있어(특히 PDF), 반드시 /preview 형태를 써야 합니다.
+  let id = String(fileIdOrUrl).trim();
+  const m = id.match(/\/d\/([^/]+)/);
+  if (m) id = m[1];
+  return `https://drive.google.com/file/d/${id}/preview`;
 }
 
 async function load() {
