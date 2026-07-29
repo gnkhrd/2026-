@@ -12,18 +12,202 @@
     <a class="back" href="index.html">‹</a>
     <div>
       <h1>기타 안내</h1>
-      <div class="sub">배너를 누르면 새 창에서 상세 내용이 열립니다</div>
+      <div class="sub">방배정표 · 식사장소 · 연수원 지도 등</div>
     </div>
   </div>
 
+  <!-- 내 방 찾기 -->
+  <div class="section-title">
+    <span>🛏️ 내 방 찾기</span>
+  </div>
+  <div class="card">
+    <div class="field">
+      <label>사번</label>
+      <input type="text" id="room-empId" autocapitalize="characters" placeholder="예: A10001">
+    </div>
+    <div class="field">
+      <label>성명</label>
+      <input type="text" id="room-name" placeholder="예: 김민준">
+    </div>
+    <div id="room-result"></div>
+    <button class="btn btn-primary" id="room-submit-btn">내 방 확인하기</button>
+  </div>
+
+  <!-- 전체 방배정표 -->
+  <div class="section-title">
+    <span>전체 방배정표</span>
+    <span class="count" id="room-count">0명</span>
+  </div>
+  <div class="card" style="padding:12px 14px;">
+    <div class="field" style="margin-bottom:10px;">
+      <input type="text" id="room-filter" placeholder="🔍 이름 또는 사번으로 검색">
+    </div>
+  </div>
+
+  <div class="card mobile-only" id="room-list" style="padding:6px 14px;">
+    <div class="empty">불러오는 중...</div>
+  </div>
+
+  <div class="card desktop-only" style="padding:14px;">
+    <div class="att-table-wrap">
+      <table class="att-table" id="room-table">
+        <thead>
+          <tr><th style="width:56px;">번호</th><th>성명</th><th>소속</th><th style="width:140px;">방 배정</th></tr>
+        </thead>
+        <tbody id="room-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 식사조 (사무총장 동행 식사 일정) -->
+  <div class="section-title">
+    <span>🍽️ 식사조 (사무총장 동행 식사 일정)</span>
+  </div>
+  <div id="meal-groups">
+    <div class="card"><div class="empty">불러오는 중...</div></div>
+  </div>
+
+  <!-- 그 외 배너형 안내 -->
+  <div class="section-title">
+    <span>그 외 안내</span>
+  </div>
   <div class="grid-2" id="banner-grid"></div>
 </div>
 
 <script src="assets/config.js"></script>
 <script src="assets/mockdata.js"></script>
 <script src="assets/api.js"></script>
+<script src="assets/util.js"></script>
 <script>
-async function load() {
+let ROOM_ALL = [];
+
+function renderRoomLookupResult(match) {
+  const el = document.getElementById("room-result");
+  if (!match) {
+    el.innerHTML = '<div class="notice error">명단에서 사번/성명을 찾을 수 없습니다. 다시 확인해주세요.</div>';
+    return;
+  }
+  el.innerHTML = `
+    <div class="notice success">
+      <b>${match.name}</b>님 (${match.empId}) · ${match.org || ""}<br>
+      배정된 방: <b>${match.room || "미배정"}</b>
+    </div>
+  `;
+}
+
+document.getElementById("room-submit-btn").addEventListener("click", async () => {
+  const empId = document.getElementById("room-empId").value.trim();
+  const name = document.getElementById("room-name").value.trim();
+  const el = document.getElementById("room-result");
+  if (!empId || !name) {
+    el.innerHTML = '<div class="notice error">사번과 성명을 모두 입력해주세요.</div>';
+    return;
+  }
+  const btn = document.getElementById("room-submit-btn");
+  btn.disabled = true; btn.textContent = "확인 중...";
+  const res = await API.getRoomAssignment();
+  btn.disabled = false; btn.textContent = "내 방 확인하기";
+  if (!res.ok) { el.innerHTML = `<div class="notice error">${res.message || "조회 중 오류가 발생했습니다."}</div>`; return; }
+  const rosterHit = res.list.find(r => String(r.name).trim() === name);
+  const match = res.list.find(r => String(r.empId).trim() === empId && String(r.name).trim() === name);
+  if (!match && rosterHit === undefined) {
+    // 방배정표 자체에 이름이 없는 경우 (개별 배정 대상이 아님) — 오류가 아니라 안내로 표시
+    el.innerHTML = '<div class="notice info">별도로 배정된 방이 없습니다. 현장 안내데스크에서 확인해주세요.</div>';
+    return;
+  }
+  renderRoomLookupResult(match);
+});
+
+function renderRoomList(list) {
+  const wrap = document.getElementById("room-list");
+  const tbody = document.getElementById("room-table-body");
+  const countEl = document.getElementById("room-count");
+  countEl.textContent = list.length + "명";
+
+  if (!list.length) {
+    wrap.innerHTML = '<div class="empty">검색 결과가 없습니다.</div>';
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">검색 결과가 없습니다.</td></tr>';
+    return;
+  }
+
+  wrap.innerHTML = list.map(r => `
+    <div class="list-item">
+      <div class="avatar">${initials(r.name)}</div>
+      <div>
+        <div class="name">${r.name}</div>
+        <div class="meta">${r.org || ""}</div>
+      </div>
+      <div class="time">${r.room || ""}</div>
+    </div>
+  `).join("");
+
+  tbody.innerHTML = list.map((r, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${r.name}</td>
+      <td>${r.org || ""}</td>
+      <td>${r.room || ""}</td>
+    </tr>
+  `).join("");
+}
+
+document.getElementById("room-filter").addEventListener("input", (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  const filtered = !q ? ROOM_ALL : ROOM_ALL.filter(r =>
+    String(r.name).toLowerCase().includes(q) || String(r.empId).toLowerCase().includes(q)
+  );
+  renderRoomList(filtered);
+});
+
+async function loadRooms() {
+  const res = await API.getRoomAssignment();
+  ROOM_ALL = res.ok ? res.list : [];
+  const countEl = document.getElementById("room-count");
+  if (!ROOM_ALL.length) {
+    countEl.textContent = "0명";
+    document.getElementById("room-list").innerHTML = '<div class="empty">아직 등록된 방배정표가 없습니다.</div>';
+    document.getElementById("room-table-body").innerHTML = '<tr><td colspan="4" class="empty">아직 등록된 방배정표가 없습니다.</td></tr>';
+    return;
+  }
+  renderRoomList(ROOM_ALL);
+}
+
+function mealDayLabel(dateStr, idx) {
+  const d = new Date(normDate(dateStr) + "T00:00:00");
+  if (isNaN(d.getTime())) return dateStr;
+  return `${idx + 1}일차 (${d.getMonth() + 1}/${d.getDate()})`;
+}
+
+async function loadMealGroups() {
+  const wrap = document.getElementById("meal-groups");
+  const res = await API.getMealGroups();
+  const list = res.ok ? res.list : [];
+  if (!list.length) {
+    wrap.innerHTML = '<div class="card"><div class="empty">등록된 식사조 일정이 없습니다.</div></div>';
+    return;
+  }
+  const dates = [...new Set(list.map(r => normDate(r.date)))].filter(Boolean).sort();
+  wrap.innerHTML = dates.map((d, i) => {
+    const rows = list.filter(r => normDate(r.date) === d);
+    const body = rows.map(r => `
+      <details class="card" style="margin-bottom:8px; padding:12px 14px;">
+        <summary style="cursor:pointer; font-weight:700; font-size:14px;">
+          ${r.meal || ""} · ${r.target || ""} <span style="color:var(--text-faint); font-weight:400;">(${r.count || (r.members ? r.members.split(",").length + "명" : "")})</span>
+        </summary>
+        <div style="margin-top:8px; font-size:13px; color:var(--text-dim);">
+          ${r.menu ? `<div style="margin-bottom:6px;">메뉴: ${r.menu}</div>` : ""}
+          <div>${(r.members || "").split(",").map(n => n.trim()).filter(Boolean).join(", ")}</div>
+        </div>
+      </details>
+    `).join("");
+    return `
+      <div class="section-title" style="margin-top:4px;"><span>${mealDayLabel(d, i)}</span></div>
+      ${body}
+    `;
+  }).join("");
+}
+
+async function loadBanners() {
   const res = await API.getBanners();
   const wrap = document.getElementById("banner-grid");
   if (!res.ok || !res.list.length) { wrap.innerHTML = '<div class="empty">등록된 안내가 없습니다.</div>'; return; }
@@ -35,7 +219,10 @@ async function load() {
     </a>
   `).join("");
 }
-load();
+
+loadRooms();
+loadMealGroups();
+loadBanners();
 </script>
 </body>
 </html>

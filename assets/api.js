@@ -257,6 +257,18 @@
       return callServer("getBanners", {});
     },
 
+    // ---------- 방배정표 ----------
+    async getRoomAssignment() {
+      if (IS_MOCK) { await delay(150); return { ok: true, list: window.MOCK_SEED.rooms || [] }; }
+      return callServer("getRoomAssignment", {});
+    },
+
+    // ---------- 식사조 (사무총장 동행 식사 일정) ----------
+    async getMealGroups() {
+      if (IS_MOCK) { await delay(150); return { ok: true, list: window.MOCK_SEED.mealGroups || [] }; }
+      return callServer("getMealGroups", {});
+    },
+
     // ---------- 네트워킹 랭킹전 ----------
     async getLeaderboard(empId) {
       if (IS_MOCK) { await delay(200); return computeLeaderboard_(loadDB(), empId); }
