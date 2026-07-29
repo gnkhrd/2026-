@@ -198,6 +198,8 @@ document.getElementById("submit-btn").addEventListener("click", async () => {
   const res = await API.checkIn({ empId, name, org });
   btn.disabled = false; btn.textContent = "출석 인증하기";
   if (res.ok) {
+    setMyEmpId(empId);
+    setMyName(name);
     const qrUrl = `qr-card.html?empId=${encodeURIComponent(empId)}&name=${encodeURIComponent(name)}`;
     resultEl.innerHTML = `
       <div class="notice success">출석 인증이 완료되었습니다. 반갑습니다!</div>

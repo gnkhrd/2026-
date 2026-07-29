@@ -12,15 +12,106 @@
     <a class="back" href="index.html">‹</a>
     <div>
       <h1>기타 안내</h1>
-      <div class="sub">방배정표 · 식사장소 · 연수원 지도 등</div>
+      <div class="sub">방배정표 · 식사장소 · 총장님식사조</div>
     </div>
   </div>
 
-  <!-- 내 방 찾기 -->
-  <div class="section-title">
-    <span>🛏️ 내 방 찾기</span>
+  <div class="info-tabs" id="info-tabs">
+    <button data-tab="room">방배정표</button>
+    <button data-tab="mealplace">식사장소</button>
+    <button data-tab="mealgroups">총장님식사조</button>
   </div>
-  <div class="card">
+
+  <!-- 탭을 아무것도 누르지 않은 초기 상태 -->
+  <div class="tab-panel active" id="tab-empty">
+    <div class="card"><div class="empty">위 탭을 눌러 원하는 정보를 확인해주세요.</div></div>
+  </div>
+
+  <!-- ============ 탭 1: 방배정표 ============ -->
+  <div class="tab-panel" id="tab-room">
+
+    <div class="section-title">
+      <span>🛏️ 내 방 찾기</span>
+    </div>
+    <div class="card" id="room-my-box">
+      <div class="empty">확인 중...</div>
+    </div>
+
+    <div class="section-title">
+      <span>전체 방배정표 검색</span>
+    </div>
+    <div class="card" style="padding:12px 14px;">
+      <div class="field" style="margin-bottom:0;">
+        <input type="text" id="room-filter" placeholder="🔍 사번 · 성명 · 방배정으로 검색">
+      </div>
+      <div style="font-size:12px; color:var(--text-faint); margin-top:8px;">검색방법: 사번, 성명, 방 배정(예: 플렉스타워 516호)으로 검색</div>
+    </div>
+    <div id="room-search-result"></div>
+
+    <div class="section-title">
+      <span>🗺️ 연수원 지도</span>
+    </div>
+    <div class="card" id="venue-map-box" style="padding:14px; text-align:center;">
+      <div class="empty">지도 이미지가 아직 등록되지 않았습니다.</div>
+    </div>
+  </div>
+
+  <!-- ============ 탭 2: 식사장소 ============ -->
+  <div class="tab-panel" id="tab-mealplace">
+    <div class="section-title">
+      <span>🍽️ 식사장소 안내</span>
+    </div>
+    <div class="grid-2" id="banner-grid"></div>
+  </div>
+
+  <!-- ============ 탭 3: 총장님식사조 ============ -->
+  <div class="tab-panel" id="tab-mealgroups">
+    <div class="section-title">
+      <span>🍽️ 총장님식사조 (사무총장 동행 식사 일정)</span>
+    </div>
+    <div id="meal-groups">
+      <div class="card"><div class="empty">불러오는 중...</div></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="assets/config.js"></script>
+<script src="assets/mockdata.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/util.js"></script>
+<script>
+/* ---------- 탭 전환 ---------- */
+document.getElementById("info-tabs").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-tab]");
+  if (!btn) return;
+  document.querySelectorAll("#info-tabs button").forEach(b => b.classList.toggle("active", b === btn));
+  document.querySelectorAll(".tab-panel").forEach(p => p.classList.toggle("active", p.id === "tab-" + btn.dataset.tab));
+});
+
+/* ---------- 내 방 찾기: 출석체크 때 저장된 사번/성명을 자동으로 사용 ---------- */
+function renderMyRoomBox(match, rosterHit, empId, name) {
+  const box = document.getElementById("room-my-box");
+  if (match) {
+    box.innerHTML = `
+      <div class="notice success">
+        <b>${match.name}</b>님 (${match.empId}) · ${match.org || ""}<br>
+        배정된 방: <b>${match.room || "미배정"}</b>
+      </div>
+      <div style="font-size:12px; color:var(--text-faint); margin-top:6px;">출석체크 정보로 자동 확인되었습니다.</div>
+    `;
+    return;
+  }
+  if (empId && name && !rosterHit) {
+    box.innerHTML = `
+      <div class="notice info">별도로 배정된 방이 없습니다. 현장 안내데스크에서 확인해주세요.</div>
+      <div style="font-size:12px; color:var(--text-faint); margin-top:6px;">(${name}님, ${empId} 기준 자동 확인)</div>
+    `;
+    return;
+  }
+  // 저장된 신원 정보가 없는 경우 (아직 출석체크 전) — 수동 검색 폼 표시
+  box.innerHTML = `
+    <div class="notice info">출석체크를 하시면 이 자리에 내 방이 자동으로 표시됩니다. 그 전에는 아래에서 직접 확인해보세요.</div>
     <div class="field">
       <label>사번</label>
       <input type="text" id="room-empId" autocapitalize="characters" placeholder="예: A10001">
@@ -29,149 +120,120 @@
       <label>성명</label>
       <input type="text" id="room-name" placeholder="예: 김민준">
     </div>
-    <div id="room-result"></div>
+    <div id="room-manual-result"></div>
     <button class="btn btn-primary" id="room-submit-btn">내 방 확인하기</button>
-  </div>
+  `;
+  document.getElementById("room-submit-btn").addEventListener("click", async () => {
+    const eid = document.getElementById("room-empId").value.trim();
+    const nm = document.getElementById("room-name").value.trim();
+    const el = document.getElementById("room-manual-result");
+    if (!eid || !nm) { el.innerHTML = '<div class="notice error">사번과 성명을 모두 입력해주세요.</div>'; return; }
+    const res = await API.getRoomAssignment();
+    if (!res.ok) { el.innerHTML = `<div class="notice error">${res.message || "조회 중 오류가 발생했습니다."}</div>`; return; }
+    const hit = res.list.find(r => String(r.name).trim() === nm);
+    const m = res.list.find(r => String(r.empId).trim() === eid && String(r.name).trim() === nm);
+    if (!m && !hit) { el.innerHTML = '<div class="notice info">별도로 배정된 방이 없습니다. 현장 안내데스크에서 확인해주세요.</div>'; return; }
+    if (!m) { el.innerHTML = '<div class="notice error">명단에서 사번/성명을 찾을 수 없습니다. 다시 확인해주세요.</div>'; return; }
+    el.innerHTML = `<div class="notice success"><b>${m.name}</b>님 (${m.empId}) · ${m.org || ""}<br>배정된 방: <b>${m.room || "미배정"}</b></div>`;
+  });
+}
 
-  <!-- 전체 방배정표 -->
-  <div class="section-title">
-    <span>전체 방배정표</span>
-    <span class="count" id="room-count">0명</span>
-  </div>
-  <div class="card" style="padding:12px 14px;">
-    <div class="field" style="margin-bottom:10px;">
-      <input type="text" id="room-filter" placeholder="🔍 이름 또는 사번으로 검색">
-    </div>
-  </div>
-
-  <div class="card mobile-only" id="room-list" style="padding:6px 14px;">
-    <div class="empty">불러오는 중...</div>
-  </div>
-
-  <div class="card desktop-only" style="padding:14px;">
-    <div class="att-table-wrap">
-      <table class="att-table" id="room-table">
-        <thead>
-          <tr><th style="width:56px;">번호</th><th>성명</th><th>소속</th><th style="width:140px;">방 배정</th></tr>
-        </thead>
-        <tbody id="room-table-body"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- 식사조 (사무총장 동행 식사 일정) -->
-  <div class="section-title">
-    <span>🍽️ 식사조 (사무총장 동행 식사 일정)</span>
-  </div>
-  <div id="meal-groups">
-    <div class="card"><div class="empty">불러오는 중...</div></div>
-  </div>
-
-  <!-- 그 외 배너형 안내 -->
-  <div class="section-title">
-    <span>그 외 안내</span>
-  </div>
-  <div class="grid-2" id="banner-grid"></div>
-</div>
-
-<script src="assets/config.js"></script>
-<script src="assets/mockdata.js"></script>
-<script src="assets/api.js"></script>
-<script src="assets/util.js"></script>
-<script>
-let ROOM_ALL = [];
-
-function renderRoomLookupResult(match) {
-  const el = document.getElementById("room-result");
-  if (!match) {
-    el.innerHTML = '<div class="notice error">명단에서 사번/성명을 찾을 수 없습니다. 다시 확인해주세요.</div>';
+async function loadMyRoom() {
+  const empId = myEmpId();
+  const name = myName();
+  if (!empId || !name) { renderMyRoomBox(null, null, "", ""); return; }
+  const res = await API.getRoomAssignment();
+  if (!res.ok) {
+    document.getElementById("room-my-box").innerHTML = `<div class="notice error">${res.message || "조회 중 오류가 발생했습니다."}</div>`;
     return;
   }
-  el.innerHTML = `
-    <div class="notice success">
-      <b>${match.name}</b>님 (${match.empId}) · ${match.org || ""}<br>
-      배정된 방: <b>${match.room || "미배정"}</b>
+  const rosterHit = res.list.find(r => String(r.name).trim() === name);
+  const match = res.list.find(r => String(r.empId).trim() === empId && String(r.name).trim() === name);
+  renderMyRoomBox(match, rosterHit, empId, name);
+}
+
+/* ---------- 전체 방배정표: 기본 목록 노출 없이 검색 결과만 표시 (650명 스크롤 부담 방지) ---------- */
+let ROOM_ALL = null;
+
+function renderRoomSearchResult(list, query) {
+  const wrap = document.getElementById("room-search-result");
+  if (!query) { wrap.innerHTML = ""; return; }
+  if (!list.length) { wrap.innerHTML = '<div class="card"><div class="empty">검색 결과가 없습니다.</div></div>'; return; }
+  wrap.innerHTML = `
+    <div class="card mobile-only" style="padding:6px 14px;">
+      ${list.map(r => `
+        <div class="list-item">
+          <div class="avatar">${initials(r.name)}</div>
+          <div>
+            <div class="name">${r.name}</div>
+            <div class="meta">${r.org || ""}</div>
+          </div>
+          <div class="time">${r.room || ""}</div>
+        </div>
+      `).join("")}
+    </div>
+    <div class="card desktop-only" style="padding:14px;">
+      <div class="att-table-wrap">
+        <table class="att-table">
+          <thead><tr><th style="width:56px;">번호</th><th>성명</th><th>소속</th><th style="width:140px;">방 배정</th></tr></thead>
+          <tbody>
+            ${list.map((r, i) => `<tr><td>${i + 1}</td><td>${r.name}</td><td>${r.org || ""}</td><td>${r.room || ""}</td></tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
     </div>
   `;
 }
 
-document.getElementById("room-submit-btn").addEventListener("click", async () => {
-  const empId = document.getElementById("room-empId").value.trim();
-  const name = document.getElementById("room-name").value.trim();
-  const el = document.getElementById("room-result");
-  if (!empId || !name) {
-    el.innerHTML = '<div class="notice error">사번과 성명을 모두 입력해주세요.</div>';
-    return;
-  }
-  const btn = document.getElementById("room-submit-btn");
-  btn.disabled = true; btn.textContent = "확인 중...";
-  const res = await API.getRoomAssignment();
-  btn.disabled = false; btn.textContent = "내 방 확인하기";
-  if (!res.ok) { el.innerHTML = `<div class="notice error">${res.message || "조회 중 오류가 발생했습니다."}</div>`; return; }
-  const rosterHit = res.list.find(r => String(r.name).trim() === name);
-  const match = res.list.find(r => String(r.empId).trim() === empId && String(r.name).trim() === name);
-  if (!match && rosterHit === undefined) {
-    // 방배정표 자체에 이름이 없는 경우 (개별 배정 대상이 아님) — 오류가 아니라 안내로 표시
-    el.innerHTML = '<div class="notice info">별도로 배정된 방이 없습니다. 현장 안내데스크에서 확인해주세요.</div>';
-    return;
-  }
-  renderRoomLookupResult(match);
-});
-
-function renderRoomList(list) {
-  const wrap = document.getElementById("room-list");
-  const tbody = document.getElementById("room-table-body");
-  const countEl = document.getElementById("room-count");
-  countEl.textContent = list.length + "명";
-
-  if (!list.length) {
-    wrap.innerHTML = '<div class="empty">검색 결과가 없습니다.</div>';
-    tbody.innerHTML = '<tr><td colspan="4" class="empty">검색 결과가 없습니다.</td></tr>';
-    return;
-  }
-
-  wrap.innerHTML = list.map(r => `
-    <div class="list-item">
-      <div class="avatar">${initials(r.name)}</div>
-      <div>
-        <div class="name">${r.name}</div>
-        <div class="meta">${r.org || ""}</div>
-      </div>
-      <div class="time">${r.room || ""}</div>
-    </div>
-  `).join("");
-
-  tbody.innerHTML = list.map((r, i) => `
-    <tr>
-      <td>${i + 1}</td>
-      <td>${r.name}</td>
-      <td>${r.org || ""}</td>
-      <td>${r.room || ""}</td>
-    </tr>
-  `).join("");
-}
-
-document.getElementById("room-filter").addEventListener("input", (e) => {
+document.getElementById("room-filter").addEventListener("input", async (e) => {
   const q = e.target.value.trim().toLowerCase();
-  const filtered = !q ? ROOM_ALL : ROOM_ALL.filter(r =>
-    String(r.name).toLowerCase().includes(q) || String(r.empId).toLowerCase().includes(q)
+  if (!q) { renderRoomSearchResult([], ""); return; }
+  if (ROOM_ALL === null) {
+    const res = await API.getRoomAssignment();
+    ROOM_ALL = res.ok ? res.list : [];
+  }
+  const filtered = ROOM_ALL.filter(r =>
+    String(r.name).toLowerCase().includes(q) ||
+    String(r.empId).toLowerCase().includes(q) ||
+    String(r.room || "").toLowerCase().includes(q)
   );
-  renderRoomList(filtered);
+  renderRoomSearchResult(filtered, q);
 });
 
-async function loadRooms() {
-  const res = await API.getRoomAssignment();
-  ROOM_ALL = res.ok ? res.list : [];
-  const countEl = document.getElementById("room-count");
-  if (!ROOM_ALL.length) {
-    countEl.textContent = "0명";
-    document.getElementById("room-list").innerHTML = '<div class="empty">아직 등록된 방배정표가 없습니다.</div>';
-    document.getElementById("room-table-body").innerHTML = '<tr><td colspan="4" class="empty">아직 등록된 방배정표가 없습니다.</td></tr>';
-    return;
-  }
-  renderRoomList(ROOM_ALL);
+/* ---------- 연수원 지도 이미지 ---------- */
+function driveImageUrl(fileIdOrUrl) {
+  if (!fileIdOrUrl) return "";
+  let id = String(fileIdOrUrl).trim();
+  const m = id.match(/\/d\/([^/]+)/);
+  if (m) id = m[1];
+  return `https://drive.google.com/thumbnail?id=${id}&sz=w1600`;
 }
 
+function loadVenueMap() {
+  const box = document.getElementById("venue-map-box");
+  const src = driveImageUrl(window.CONFIG.VENUE_MAP_IMAGE);
+  if (!src) return; // 기본 "준비 중" 안내 유지
+  box.innerHTML = `
+    <img src="${src}" alt="연수원 지도" style="max-width:100%; border-radius:12px;">
+    <div style="font-size:12px; color:var(--text-faint); margin-top:8px;">S : 스테이 타워 (그랜드홀이 있는 건물) · P : 플렉스 타워 (워터파크 있는 건물)</div>
+  `;
+}
+
+/* ---------- 식사장소 배너 ---------- */
+async function loadBanners() {
+  const res = await API.getBanners();
+  const wrap = document.getElementById("banner-grid");
+  if (!res.ok || !res.list.length) { wrap.innerHTML = '<div class="empty">등록된 안내가 없습니다.</div>'; return; }
+  wrap.innerHTML = res.list.map(b => `
+    <a class="banner" href="${b.url || '#'}" target="_blank" rel="noopener"
+       onclick="${b.url ? '' : "event.preventDefault(); alert('아직 파일/링크가 등록되지 않았습니다.');"}">
+      <div class="emoji">${b.emoji}</div>
+      <div class="title">${b.title}</div>
+    </a>
+  `).join("");
+}
+
+/* ---------- 총장님식사조 ---------- */
 function mealDayLabel(dateStr, idx) {
   const d = new Date(normDate(dateStr) + "T00:00:00");
   if (isNaN(d.getTime())) return dateStr;
@@ -207,22 +269,10 @@ async function loadMealGroups() {
   }).join("");
 }
 
-async function loadBanners() {
-  const res = await API.getBanners();
-  const wrap = document.getElementById("banner-grid");
-  if (!res.ok || !res.list.length) { wrap.innerHTML = '<div class="empty">등록된 안내가 없습니다.</div>'; return; }
-  wrap.innerHTML = res.list.map(b => `
-    <a class="banner" href="${b.url || '#'}" target="_blank" rel="noopener"
-       onclick="${b.url ? '' : "event.preventDefault(); alert('아직 파일/링크가 등록되지 않았습니다.');"}">
-      <div class="emoji">${b.emoji}</div>
-      <div class="title">${b.title}</div>
-    </a>
-  `).join("");
-}
-
-loadRooms();
-loadMealGroups();
+loadMyRoom();
+loadVenueMap();
 loadBanners();
+loadMealGroups();
 </script>
 </body>
 </html>

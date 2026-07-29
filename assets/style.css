@@ -78,6 +78,34 @@ body{
 .hero p{ font-size:14px; color: var(--text-dim); margin:0; line-height:1.5; }
 .hero .meta{ font-size:12px; color: var(--text-faint); margin-top:10px; }
 
+/* 이번 연수 주제(테마) 배너 — 연수명/주제 두 줄을 강조된 배경으로 구분 */
+.theme-banner{
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 55%, var(--brown-dark) 100%);
+  border-radius: 18px;
+  padding: 18px 20px 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 20px rgba(82,70,63,.18);
+}
+.theme-banner .eyebrow{
+  display:inline-block;
+  background: rgba(255,255,255,.20);
+  color:#fff;
+  font-size:12px;
+  font-weight:700;
+  padding:5px 12px;
+  border-radius:999px;
+  margin:0 0 10px;
+  letter-spacing:.2px;
+}
+.theme-banner h1{
+  font-size:21px;
+  margin:0;
+  line-height:1.4;
+  color:#fff;
+  font-weight:800;
+  text-shadow: 0 1px 3px rgba(0,0,0,.12);
+}
+
 .card{
   background: var(--bg-card);
   border:1px solid var(--border);
@@ -198,6 +226,23 @@ body{
 }
 .banner .emoji{ font-size:28px; }
 .banner .title{ font-size:14px; font-weight:700; }
+
+/* info.html 전용 탭 (일정표의 day-tabs와 달리 PC에서도 항상 탭 전환 방식 유지) */
+.info-tabs{ display:flex; gap:8px; margin-bottom:16px; }
+.info-tabs button{
+  flex:1;
+  padding:10px 0;
+  border-radius: 999px;
+  border:1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-dim);
+  font-weight:700;
+  font-size:13px;
+  cursor:pointer;
+}
+.info-tabs button.active{ background: var(--accent); color:#fff; border-color: var(--accent); }
+.tab-panel{ display:none; }
+.tab-panel.active{ display:block; }
 
 .day-tabs{ display:flex; gap:8px; margin-bottom:16px; }
 .day-tabs button{
@@ -355,6 +400,8 @@ a{ color:inherit; }
   .topbar h1{ font-size:22px; }
   .hero h1{ font-size:30px; }
   .hero p{ font-size:15px; }
+  .theme-banner h1{ font-size:27px; }
+  .theme-banner{ padding:22px 26px 24px; }
 
   /* 홈 메뉴: 카드 그리드 */
   .menu-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:16px; }
