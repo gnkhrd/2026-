@@ -30,5 +30,5 @@ window.CONFIG = {
   // 기타안내 > 방배정표 탭 하단에 보여줄 연수원 지도 이미지 (플렉스타워/스테이타워 구분 안내용).
   // 구글드라이브에 이미지를 올리고 "링크가 있는 모든 사용자(뷰어)"로 공유한 뒤,
   // 파일ID 또는 전체 링크를 여기 붙여넣으세요. 비워두면 "이미지 준비 중" 안내만 표시됩니다.
-  VENUE_MAP_IMAGE: ""
+  VENUE_MAP_IMAGE: "https://drive.google.com/file/d/1wDO1ilxtzZPZ4XRUMpZTaU1eDdzCpvO9/view?usp=sharing"
 };
