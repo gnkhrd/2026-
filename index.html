@@ -32,12 +32,11 @@
     </div>
   </div>
 
-  <!-- 오늘의 일정 -->
+  <!-- 오늘의 주요일정 -->
   <div class="section-title">
-    <span>오늘의 일정</span>
-    <span class="count" id="today-date-label"></span>
+    <span>오늘의 주요일정</span>
   </div>
-  <div class="card" id="today-schedule">
+  <div id="today-schedule">
     <div class="empty">일정 정보를 불러오는 중...</div>
   </div>
 
@@ -144,13 +143,35 @@ document.getElementById("event-info").textContent =
 
 function timeToNum(t) { return parseInt(String(t).replace(":", ""), 10); }
 
+// "오늘의 주요일정" 4칸 아이콘: tag 문구에 포함된 단어를 보고 어울리는 이모지를 자동으로 골라줍니다.
+// 새로운 키워드를 적어도 규칙에 맞으면 자동 매칭되고, 안 맞으면 기본(📌)이 표시됩니다.
+const ICON_RULES = [
+  [/예배|기도/, "🙏"],
+  [/비전|방향/, "🧭"],
+  [/기조강연|특별강연|특강/, "🎤"],
+  [/발표/, "📊"],
+  [/워크숍|세션|분임/, "🧩"],
+  [/시상|수상/, "🏆"],
+  [/공연|축하/, "🎶"],
+  [/레크리에이션|게임|활동|챌린지/, "🎮"],
+  [/휴식|브레이크/, "☕"],
+  [/조식|중식|석식|식사/, "🍽️"],
+  [/개회|환영|인사|소개/, "👋"],
+  [/폐회|마무리|수료/, "🎉"],
+  [/등록|접수/, "📝"]
+];
+function scheduleIcon(tag) {
+  const t = String(tag || "").trim();
+  for (const [re, icon] of ICON_RULES) { if (re.test(t)) return icon; }
+  return "📌";
+}
+
 async function initHome() {
   const res = await API.getSchedule();
   const badgeEl = document.getElementById("status-badge");
   const sbStatus = document.getElementById("sb-status");
   const sbCurrent = document.getElementById("sb-current");
   const sbNext = document.getElementById("sb-next");
-  const keywordLabelEl = document.getElementById("today-date-label");
   const listWrap = document.getElementById("today-schedule");
 
   const allList = (res.ok ? res.list : []).map(s => ({ ...s, date: normDate(s.date) }));
@@ -202,31 +223,30 @@ async function initHome() {
       ? `<div class="sb-line"><span class="sb-tag next">다음</span> ${todayItems[nextIdx].time} · ${todayItems[nextIdx].title}</div>` : "";
   }
 
-  // ---------- 2) "오늘의 일정" 목록 — 날짜가 아니라 Schedule 시트의 tag 키워드로 고른 항목만 표시 ----------
-  // HOME_SCHEDULE_KEYWORD는 쉼표로 여러 키워드를 나열할 수 있습니다 (예: "개회예배,기조강연").
-  // Schedule 시트의 tag 칸이 이 중 하나와 정확히 같은 행만 뽑혀서 나열됩니다.
-  const keywords = (window.CONFIG.HOME_SCHEDULE_KEYWORD || "").split(",").map(k => k.trim()).filter(Boolean);
+  // ---------- 2) "오늘의 주요일정" 4칸 — 오늘(KST) 날짜의 Schedule 행 중 tag 칸이 채워진 것만, 최대 4개 ----------
+  // Google Sheet의 Schedule 탭에서, 그날 홈 화면에 보여주고 싶은 최대 4개 행의 tag 칸에 원하는 문구를
+  // 적어두기만 하면 됩니다 (예: 1일차엔 "개회예배,비전공유,기조강연,주제발표1", 2일차엔 다른 4개).
+  // 일자가 다르면 tag도 자유롭게 다르게 적을 수 있고, 아이콘은 문구에 맞춰 자동으로 붙습니다.
   const highlighted = allList
-    .filter(s => keywords.includes(String(s.tag || "").trim()))
-    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+    .filter(s => s.date === kst.date && String(s.tag || "").trim())
+    .sort((a, b) => timeToNum(a.time) - timeToNum(b.time))
+    .slice(0, 4);
 
-  if (!keywords.length) {
-    keywordLabelEl.textContent = "키워드 미설정";
-    listWrap.innerHTML = '<div class="empty">assets/config.js의 HOME_SCHEDULE_KEYWORD 값을 정하면, Schedule 시트에서 같은 tag가 적힌 일정만 여기 나열됩니다.</div>';
+  if (!allList.length) {
+    listWrap.innerHTML = '<div class="card"><div class="empty">일정 정보를 불러오지 못했습니다.</div></div>';
   } else if (!highlighted.length) {
-    keywordLabelEl.textContent = `키워드 "${keywords.join(", ")}" · 0건`;
-    listWrap.innerHTML = `<div class="empty">Schedule 시트의 tag 칸에 "${keywords.join(", ")}" 중 하나가 적힌 일정이 아직 없습니다.</div>`;
+    listWrap.innerHTML = `<div class="card"><div class="empty">오늘(${kst.date}) Schedule 시트에 tag가 채워진 일정이 아직 없습니다.</div></div>`;
   } else {
-    keywordLabelEl.textContent = `키워드 "${keywords.join(", ")}" · ${highlighted.length}건`;
-    listWrap.innerHTML = highlighted.map(s => `
-      <div class="timeline-item">
-        <div class="t" style="width:58px;">${s.date.slice(5).replace("-", "/")}<br>${fmtTimeRange(s.time)}</div>
-        <div class="content">
-          <div class="title">${s.title}</div>
-          <div class="speaker">${s.speaker || ""}</div>
-        </div>
+    listWrap.innerHTML = `
+      <div class="today-highlight-grid">
+        ${highlighted.map(s => `
+          <div class="today-highlight-item">
+            <div class="thi-icon">${scheduleIcon(s.tag)}</div>
+            <div class="thi-label">${s.tag}</div>
+          </div>
+        `).join("")}
       </div>
-    `).join("");
+    `;
   }
 }
 

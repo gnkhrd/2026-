@@ -1,0 +1,452 @@
+/* ===========================================================
+   2026년 정책연수 웹페이지 - Google Apps Script 백엔드
+   ------------------------------------------------------------
+   이 스크립트는 "Google Sheets 컨테이너 바인딩 스크립트"로 사용합니다.
+   1) 아래 SHEET_NAMES 에 있는 이름 그대로 시트 탭을 만드세요.
+   2) 각 시트의 1행(헤더)에 지정된 컬럼명을 정확히 적어주세요. (순서는 상관없음)
+   3) 상단 메뉴 확장 프로그램 > Apps Script 에서 이 코드를 붙여넣고 배포하세요.
+      배포 > 새 배포 > 유형: 웹 앱
+        - 실행 계정: 나
+        - 액세스 권한이 있는 사용자: 전체
+      배포 후 나오는 웹 앱 URL을 프론트엔드 assets/config.js 의 APPS_SCRIPT_URL 에 붙여넣습니다.
+=========================================================== */
+
+const SHEET_NAMES = {
+  ROSTER: "Roster",         // 컬럼: empId, name, org, role (role=직급, 출석체크 화면의 직급별 통계에 사용)
+  ATTENDANCE: "Attendance", // 컬럼: empId, name, org, role, time
+  PROFILES: "Profiles",     // 컬럼: empId, name, org, role, keywords, intro, photo
+                            // (전부 웹페이지(qr-card.html)에서 직원이 직접 입력/업로드하면 자동으로 채워짐 — 구글폼·구글계정 불필요.
+                            //  최초에는 완전히 비어있어도 되고, 예시행만 삭제하면 됨)
+  SCANLOG: "ScanLog",       // 컬럼: scannerId, scannedId, time
+  SCHEDULE: "Schedule",     // 컬럼: date, time, title, speaker, tag
+                            // (tag는 선택 입력 — 홈 화면 "오늘의 주요일정" 4칸에 노출할 행에만 원하는 문구를 적으면 됨.
+                            //  같은 날짜(date) 안에서 tag가 채워진 행만, 시간순으로 최대 4개까지 홈 화면에 나열됨.
+                            //  일자별로 다른 문구를 적으면 그날엔 그 4개가 자동으로 노출됨 (아이콘은 문구 보고 자동 매칭).
+                            //  일정표(schedule.html) 페이지에는 tag와 상관없이 전체 일정이 날짜별로 그대로 나옴)
+  MATERIALS: "Materials",   // 컬럼: title, speaker, file  (file = 구글드라이브 파일ID 또는 전체 URL)
+  BANNERS: "Banners",       // 컬럼: emoji, title, url
+  ROOMS: "RoomAssignment",  // 컬럼: empId, name, org, room (room = 건물/방번호, 예: "B동 305호")
+                            // (기타안내 화면의 "내 방 찾기" 검색과 전체 방배정표 목록에 사용됩니다.
+                            //  대표직책/본부 등 일부 인원만 개별 방이 배정되는 경우, 나머지 인원은 이 시트에
+                            //  없어도 되며 화면에는 "별도로 배정된 방이 없습니다" 안내가 자동으로 뜹니다.)
+  MEALGROUPS: "MealGroups"  // 컬럼: date, meal, target, menu, count, members
+                            // (기타안내 화면의 "식사조" 섹션 — 일자·끼니별로 묶어서 아코디언 형태로 보여줍니다.
+                            //  meal은 "아침/점심/저녁"처럼 자유 텍스트, members는 쉼표로 구분된 이름 목록입니다.)
+};
+
+function ss_() { return SpreadsheetApp.getActiveSpreadsheet(); }
+
+function getSheet_(name) {
+  const sh = ss_().getSheetByName(name);
+  if (!sh) throw new Error(`시트를 찾을 수 없습니다: ${name}`);
+  return sh;
+}
+
+// 시트를 [{header: value, ...}, ...] 형태의 객체 배열로 변환
+function sheetToObjects_(sheetName) {
+  const sh = getSheet_(sheetName);
+  const values = sh.getDataRange().getValues();
+  if (values.length < 2) return [];
+  const headers = values[0].map(h => String(h).trim());
+  const rows = [];
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    if (row.every(c => c === "" || c === null)) continue; // 빈 행 skip
+    const obj = {};
+    headers.forEach((h, idx) => { obj[h] = row[idx]; });
+    rows.push(obj);
+  }
+  return rows;
+}
+
+function appendRow_(sheetName, obj, headerOrder) {
+  const sh = getSheet_(sheetName);
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(h => String(h).trim());
+  const row = headers.map(h => (obj[h] !== undefined ? obj[h] : ""));
+  sh.appendRow(row);
+}
+
+function splitKeywords_(raw) {
+  if (!raw) return [];
+  return String(raw).split(/[,，\s]+/).map(s => s.trim()).filter(Boolean);
+}
+
+function json_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ---------- 액션 핸들러 ----------
+
+function actionCheckIn_(p) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const roster = sheetToObjects_(SHEET_NAMES.ROSTER);
+    const match = roster.find(r => String(r.empId) === String(p.empId) && String(r.name).trim() === String(p.name).trim());
+    if (!match) return { ok: false, message: "명단에서 사번/성명을 찾을 수 없습니다. 다시 확인해주세요." };
+
+    const attendance = sheetToObjects_(SHEET_NAMES.ATTENDANCE);
+    if (attendance.find(a => String(a.empId) === String(p.empId))) {
+      return { ok: false, message: "이미 출석 처리되었습니다." };
+    }
+    appendRow_(SHEET_NAMES.ATTENDANCE, {
+      empId: p.empId, name: p.name, org: p.org || match.org, role: match.role || "", time: new Date().toISOString()
+    });
+    return { ok: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function actionGetAttendanceList_() {
+  const rows = sheetToObjects_(SHEET_NAMES.ATTENDANCE);
+  rows.sort((a, b) => new Date(b.time) - new Date(a.time));
+  return { ok: true, list: rows };
+}
+
+// 개인정보(이름 등) 노출 없이 전체 명단 인원수만 반환 — 출석체크 화면의 게이지 차트용
+function actionGetRosterCount_() {
+  return { ok: true, count: sheetToObjects_(SHEET_NAMES.ROSTER).length };
+}
+
+function actionGetProfile_(p) {
+  const rows = sheetToObjects_(SHEET_NAMES.PROFILES);
+  const row = rows.find(r => String(r.empId) === String(p.empId));
+  if (!row) return { ok: false, message: "아직 명함을 만들지 않았습니다. 먼저 명함을 만들어주세요." };
+  return {
+    ok: true,
+    profile: {
+      empId: String(row.empId), name: row.name, org: row.org, role: row.role || "",
+      keywords: splitKeywords_(row.keywords), intro: row.intro || "", photo: row.photo || ""
+    }
+  };
+}
+
+// Profiles 시트에 새 행을 추가하거나(신규), 기존 empId 행을 갱신(수정)합니다.
+// fields에 없는 컬럼(주로 photo)은 건드리지 않아 기존 값을 보존합니다.
+function upsertProfile_(fields) {
+  const sh = getSheet_(SHEET_NAMES.PROFILES);
+  const lastRow = sh.getLastRow();
+  const lastCol = sh.getLastColumn();
+  const headers = lastCol ? sh.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h).trim()) : [];
+  if (!headers.length) throw new Error("Profiles 시트에 헤더가 없습니다.");
+  const empIdx = headers.indexOf("empId");
+
+  if (lastRow >= 2) {
+    const empIdCol = sh.getRange(2, empIdx + 1, lastRow - 1, 1).getValues();
+    for (let i = 0; i < empIdCol.length; i++) {
+      if (String(empIdCol[i][0]) === String(fields.empId)) {
+        const rowNum = i + 2;
+        headers.forEach((h, idx) => {
+          if (fields[h] !== undefined) sh.getRange(rowNum, idx + 1).setValue(fields[h]);
+        });
+        return "updated";
+      }
+    }
+  }
+  const row = headers.map(h => (fields[h] !== undefined ? fields[h] : ""));
+  sh.appendRow(row);
+  return "created";
+}
+
+// 1단계: 사번/성명을 명단과 대조하고, 기존에 만든 명함이 있으면 그 내용을 돌려줍니다.
+// (편집 화면을 채워주기 위함 — 없으면 org만 채운 빈 틀을 돌려줌)
+function actionGetOrInitProfile_(p) {
+  const roster = sheetToObjects_(SHEET_NAMES.ROSTER);
+  const match = roster.find(r => String(r.empId) === String(p.empId) && String(r.name).trim() === String(p.name).trim());
+  if (!match) return { ok: false, message: "명단에서 사번/성명을 찾을 수 없습니다. 다시 확인해주세요." };
+
+  const rows = sheetToObjects_(SHEET_NAMES.PROFILES);
+  const row = rows.find(r => String(r.empId) === String(p.empId));
+  if (row) {
+    return {
+      ok: true, isNew: false,
+      profile: {
+        empId: String(row.empId), name: row.name, org: row.org, role: row.role || "",
+        keywords: row.keywords || "", intro: row.intro || "", photo: row.photo || ""
+      }
+    };
+  }
+  return {
+    ok: true, isNew: true,
+    profile: { empId: p.empId, name: match.name, org: match.org, role: "", keywords: "", intro: "", photo: "" }
+  };
+}
+
+// 2단계: 실제로 명함을 생성/수정 저장합니다.
+function actionSaveProfile_(p) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const roster = sheetToObjects_(SHEET_NAMES.ROSTER);
+    const match = roster.find(r => String(r.empId) === String(p.empId) && String(r.name).trim() === String(p.name).trim());
+    if (!match) return { ok: false, message: "명단에서 사번/성명을 찾을 수 없습니다. 다시 확인해주세요." };
+
+    upsertProfile_({
+      empId: p.empId,
+      name: p.name,
+      org: p.org || match.org,
+      role: p.role || "",
+      keywords: p.keywords || "",
+      intro: p.intro || ""
+    });
+    return actionGetProfile_({ empId: p.empId });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function actionLogScan_(p) {
+  if (String(p.scannerId) === String(p.scannedId)) return { ok: false, message: "본인 QR입니다." };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const logs = sheetToObjects_(SHEET_NAMES.SCANLOG);
+    const already = logs.find(l => String(l.scannerId) === String(p.scannerId) && String(l.scannedId) === String(p.scannedId));
+    if (!already) {
+      appendRow_(SHEET_NAMES.SCANLOG, { scannerId: p.scannerId, scannedId: p.scannedId, time: new Date().toISOString() });
+    }
+  } finally {
+    lock.releaseLock();
+  }
+  const profileRes = actionGetProfile_({ empId: p.scannedId });
+  if (!profileRes.ok) {
+    return { ok: true, profile: { empId: p.scannedId, name: "(미등록 프로필)", org: "", role: "", keywords: [], intro: "" } };
+  }
+  return { ok: true, profile: profileRes.profile };
+}
+
+function actionGetMyScans_(p) {
+  const logs = sheetToObjects_(SHEET_NAMES.SCANLOG).filter(l => String(l.scannerId) === String(p.scannerId));
+  const profiles = sheetToObjects_(SHEET_NAMES.PROFILES);
+  const list = logs.map(l => {
+    const row = profiles.find(r => String(r.empId) === String(l.scannedId));
+    const base = row
+      ? { empId: String(row.empId), name: row.name, org: row.org, role: row.role || "", keywords: splitKeywords_(row.keywords), intro: row.intro || "", photo: row.photo || "" }
+      : { empId: l.scannedId, name: "(미등록 프로필)", org: "", role: "", keywords: [], intro: "" };
+    base.scannedAt = l.time;
+    return base;
+  }).sort((a, b) => new Date(b.scannedAt) - new Date(a.scannedAt));
+  return { ok: true, list };
+}
+
+// 사진은 구글폼(로그인 필요) 대신 우리 웹페이지에서 직접 업로드받습니다.
+// 그래서 직원은 구글 계정이 전혀 없어도 됩니다 — 이 함수가 대신 구글드라이브에 저장해줍니다.
+function getOrCreatePhotoFolder_() {
+  const props = PropertiesService.getScriptProperties();
+  const existingId = props.getProperty("PHOTO_FOLDER_ID");
+  if (existingId) {
+    try { return DriveApp.getFolderById(existingId); } catch (e) { /* 폴더가 삭제된 경우 재생성 */ }
+  }
+  const folder = DriveApp.createFolder("2026 정책연수 - 프로필 사진");
+  props.setProperty("PHOTO_FOLDER_ID", folder.getId());
+  return folder;
+}
+
+// Profiles 시트에서 empId가 일치하는 행을 찾아 특정 컬럼 값만 갱신
+function updateProfileField_(empId, field, value) {
+  const sh = getSheet_(SHEET_NAMES.PROFILES);
+  const values = sh.getDataRange().getValues();
+  if (values.length < 2) return false;
+  const headers = values[0].map(h => String(h).trim());
+  const empIdx = headers.indexOf("empId");
+  const fieldIdx = headers.indexOf(field);
+  if (empIdx === -1 || fieldIdx === -1) return false;
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][empIdx]) === String(empId)) {
+      sh.getRange(i + 1, fieldIdx + 1).setValue(value);
+      return true;
+    }
+  }
+  return false;
+}
+
+function actionUploadPhoto_(p) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const folder = getOrCreatePhotoFolder_();
+    const bytes = Utilities.base64Decode(p.dataBase64);
+    const blob = Utilities.newBlob(bytes, p.mimeType || "image/jpeg", `${p.empId}_photo.jpg`);
+    const file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    const url = `https://drive.google.com/uc?export=view&id=${file.getId()}`;
+    const updated = updateProfileField_(p.empId, "photo", url);
+    if (!updated) return { ok: false, message: "먼저 명함을 만든 뒤 사진을 등록해주세요." };
+    return { ok: true, photo: url };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// 구글시트에 날짜를 입력하면 시트가 자동으로 "날짜" 타입 셀로 바꿔버리는 경우가 많아,
+// 이 값을 그대로 내려주면 화면 쪽 "YYYY-MM-DD" 비교 로직과 어긋날 수 있습니다.
+// 그래서 항상 "YYYY-MM-DD" 문자열로 통일해서 내려줍니다.
+function normalizeDateCell_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, "Asia/Seoul", "yyyy-MM-dd");
+  if (!v) return "";
+  const s = String(v).trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : s;
+}
+
+function actionGetSchedule_() {
+  const rows = sheetToObjects_(SHEET_NAMES.SCHEDULE);
+  rows.forEach(r => { r.date = normalizeDateCell_(r.date); });
+  return { ok: true, list: rows };
+}
+
+function actionGetMaterials_() {
+  return { ok: true, list: sheetToObjects_(SHEET_NAMES.MATERIALS) };
+}
+
+function actionGetBanners_() {
+  return { ok: true, list: sheetToObjects_(SHEET_NAMES.BANNERS) };
+}
+
+// ---------- 방배정표 ----------
+// 650명 전체 명단을 그대로 반환합니다 (개인정보는 사번/성명/소속/방 뿐이라
+// 다른 기능들과 동일 수준). 클라이언트(info.html)에서 사번+성명 검색과
+// 전체 목록 표시를 모두 이 응답 하나로 처리합니다.
+function actionGetRoomAssignment_() {
+  return { ok: true, list: sheetToObjects_(SHEET_NAMES.ROOMS) };
+}
+
+// ---------- 식사조 (사무총장 동행 식사 일정) ----------
+function actionGetMealGroups_() {
+  return { ok: true, list: sheetToObjects_(SHEET_NAMES.MEALGROUPS) };
+}
+
+// ---------- 네트워킹 랭킹전 ----------
+// 아래 숫자들은 운영 중 자유롭게 조정 가능한 "기본값"입니다.
+// (배포 가이드 문서에도 동일하게 설명되어 있습니다.)
+const LEADERBOARD_CONFIG = {
+  POINTS_PER_SCAN: 10,   // 명함 1건(중복 제외) 스캔당 기본 점수
+  CROSS_ORG_BONUS: 10,   // 나와 소속(지부/부서)이 다른 사람을 스캔했을 때 추가 점수
+  MILESTONES: [          // 누적 스캔 수(중복 제외) 달성 시 1회성 보너스
+    { count: 10, bonus: 50 },
+    { count: 30, bonus: 150 },
+    { count: 50, bonus: 300 }
+  ]
+};
+
+function computeLeaderboardScore_(uniqueCount, crossOrgCount) {
+  let score = uniqueCount * LEADERBOARD_CONFIG.POINTS_PER_SCAN + crossOrgCount * LEADERBOARD_CONFIG.CROSS_ORG_BONUS;
+  LEADERBOARD_CONFIG.MILESTONES.forEach(m => { if (uniqueCount >= m.count) score += m.bonus; });
+  return score;
+}
+
+// scanlog는 logScan 시점에 이미 (scannerId, scannedId) 중복을 막아두었으므로
+// 여기서는 별도 중복제거 없이 행 수 = 고유 스캔 수로 취급합니다.
+function actionGetLeaderboard_(p) {
+  const scanlog = sheetToObjects_(SHEET_NAMES.SCANLOG);
+  const roster = sheetToObjects_(SHEET_NAMES.ROSTER);
+  const profiles = sheetToObjects_(SHEET_NAMES.PROFILES);
+
+  const orgCache = {}, nameCache = {};
+  function orgOf(empId) {
+    const key = String(empId);
+    if (key in orgCache) return orgCache[key];
+    const pr = profiles.find(r => String(r.empId) === key);
+    const ro = roster.find(r => String(r.empId) === key);
+    return (orgCache[key] = (pr && pr.org) || (ro && ro.org) || "");
+  }
+  function nameOf(empId) {
+    const key = String(empId);
+    if (key in nameCache) return nameCache[key];
+    const pr = profiles.find(r => String(r.empId) === key);
+    const ro = roster.find(r => String(r.empId) === key);
+    return (nameCache[key] = (pr && pr.name) || (ro && ro.name) || key);
+  }
+
+  const byScanner = {};
+  scanlog.forEach(row => {
+    const scannerId = String(row.scannerId);
+    (byScanner[scannerId] = byScanner[scannerId] || []).push(String(row.scannedId));
+  });
+
+  const individual = Object.keys(byScanner).map(empId => {
+    const scannedIds = byScanner[empId];
+    const myOrg = orgOf(empId);
+    const crossOrgCount = scannedIds.filter(sid => orgOf(sid) && orgOf(sid) !== myOrg).length;
+    const uniqueCount = scannedIds.length;
+    return {
+      empId, name: nameOf(empId), org: myOrg,
+      uniqueCount, crossOrgCount,
+      score: computeLeaderboardScore_(uniqueCount, crossOrgCount)
+    };
+  });
+  individual.sort((a, b) => b.score - a.score);
+
+  const top10 = individual.slice(0, 10);
+
+  const orgMap = {};
+  individual.forEach(ind => {
+    const org = ind.org || "(미지정)";
+    if (!orgMap[org]) orgMap[org] = { org, totalScore: 0, memberCount: 0, totalScans: 0 };
+    orgMap[org].totalScore += ind.score;
+    orgMap[org].memberCount += 1;
+    orgMap[org].totalScans += ind.uniqueCount;
+  });
+  const orgRanking = Object.values(orgMap).sort((a, b) => b.totalScore - a.totalScore);
+
+  let me = null;
+  if (p && p.empId) {
+    const idx = individual.findIndex(i => String(i.empId) === String(p.empId));
+    me = idx !== -1
+      ? { ...individual[idx], rank: idx + 1 }
+      : { empId: p.empId, name: nameOf(p.empId), org: orgOf(p.empId), uniqueCount: 0, crossOrgCount: 0, score: 0, rank: null };
+  }
+
+  const stats = {
+    totalParticipants: individual.length,
+    totalScans: individual.reduce((sum, i) => sum + i.uniqueCount, 0),
+    maxScans: individual.length ? Math.max(...individual.map(i => i.uniqueCount)) : 0,
+    avgScans: individual.length ? Math.round((individual.reduce((sum, i) => sum + i.uniqueCount, 0) / individual.length) * 10) / 10 : 0
+  };
+
+  return { ok: true, top10, orgRanking, me, stats, config: LEADERBOARD_CONFIG };
+}
+
+// ---------- 라우팅 ----------
+
+function route_(action, p) {
+  switch (action) {
+    case "checkIn": return actionCheckIn_(p);
+    case "getAttendanceList": return actionGetAttendanceList_();
+    case "getRosterCount": return actionGetRosterCount_();
+    case "getProfile": return actionGetProfile_(p);
+    case "getOrInitProfile": return actionGetOrInitProfile_(p);
+    case "saveProfile": return actionSaveProfile_(p);
+    case "uploadPhoto": return actionUploadPhoto_(p);
+    case "logScan": return actionLogScan_(p);
+    case "getMyScans": return actionGetMyScans_(p);
+    case "getSchedule": return actionGetSchedule_();
+    case "getMaterials": return actionGetMaterials_();
+    case "getBanners": return actionGetBanners_();
+    case "getRoomAssignment": return actionGetRoomAssignment_();
+    case "getMealGroups": return actionGetMealGroups_();
+    case "getLeaderboard": return actionGetLeaderboard_(p);
+    default: return { ok: false, message: "알 수 없는 요청입니다: " + action };
+  }
+}
+
+function doGet(e) {
+  try {
+    const p = e.parameter || {};
+    const result = route_(p.action, p);
+    return json_(result);
+  } catch (err) {
+    return json_({ ok: false, message: String(err) });
+  }
+}
+
+function doPost(e) {
+  try {
+    const p = JSON.parse(e.postData.contents);
+    const result = route_(p.action, p);
+    return json_(result);
+  } catch (err) {
+    return json_({ ok: false, message: String(err) });
+  }
+}
