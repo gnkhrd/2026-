@@ -238,13 +238,15 @@ async function initHome() {
     listWrap.innerHTML = `<div class="card"><div class="empty">오늘(${kst.date}) Schedule 시트에 tag가 채워진 일정이 아직 없습니다.</div></div>`;
   } else {
     listWrap.innerHTML = `
-      <div class="today-highlight-grid">
-        ${highlighted.map(s => `
-          <div class="today-highlight-item">
-            <div class="thi-icon">${scheduleIcon(s.tag)}</div>
-            <div class="thi-label">${s.tag}</div>
-          </div>
-        `).join("")}
+      <div class="card today-highlight-card">
+        <div class="today-highlight-grid">
+          ${highlighted.map(s => `
+            <div class="today-highlight-item">
+              <div class="thi-icon">${scheduleIcon(s.tag)}</div>
+              <div class="thi-label">${s.tag}</div>
+            </div>
+          `).join("")}
+        </div>
       </div>
     `;
   }
