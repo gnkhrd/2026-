@@ -53,6 +53,13 @@ function renderTabs() {
 // 모바일에서는 선택된 하루만 보이고(day-tabs로 전환), PC에서는 CSS가
 // .day-col을 전부 강제로 보이게 해서 등록된 날짜 수만큼 나란히 표시됩니다.
 // 날짜 목록(DATES)은 Schedule 시트에 실제로 입력된 날짜에서 뽑아오므로, 몇 일치 일정이든 자동으로 반영됩니다.
+// 제목이 "주제발표N" / "사례발표N-M" 형식으로 시작하면 라벨과 설명을 분리해 3줄(라벨/설명/발표자)로 표시
+function splitSessionTitle(title) {
+  const m = String(title || "").match(/^(주제발표\d+|사례발표\d+-\d+)\s+(.+)$/);
+  if (!m) return null;
+  return { label: m[1], desc: m[2] };
+}
+
 function renderSchedule() {
   const grid = document.getElementById("schedule-grid");
   if (!DATES.length) {
@@ -62,15 +69,21 @@ function renderSchedule() {
   grid.innerHTML = DATES.map((d, i) => {
     const rows = ALL.filter(r => r.date === d).sort((a,b) => a.time.localeCompare(b.time));
     const body = rows.length
-      ? rows.map(r => `
+      ? rows.map(r => {
+          const split = splitSessionTitle(r.title);
+          const content = split
+            ? `<div class="title-label">${split.label}</div><div class="title">${split.desc}</div>`
+            : `<div class="title">${r.title}</div>`;
+          return `
           <div class="timeline-item">
             <div class="t">${fmtTimeRange(r.time)}</div>
             <div class="content">
-              <div class="title">${r.title}</div>
+              ${content}
               ${r.speaker ? `<div class="speaker">${r.speaker}</div>` : ""}
             </div>
           </div>
-        `).join("")
+        `;
+        }).join("")
       : '<div class="empty">등록된 일정이 없습니다.</div>';
     return `
       <div class="day-col card ${d === currentDate ? "active" : ""}" data-date="${d}">
