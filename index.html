@@ -239,11 +239,11 @@ async function initHome() {
   } else {
     listWrap.innerHTML = `
       <div class="card today-highlight-card">
-        <div class="today-highlight-grid">
+        <div class="today-highlight-grid" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;">
           ${highlighted.map(s => `
-            <div class="today-highlight-item">
-              <div class="thi-icon">${scheduleIcon(s.tag)}</div>
-              <div class="thi-label">${s.tag}</div>
+            <div class="today-highlight-item" style="background:var(--bg-card-2); border:1px solid var(--border); border-radius:12px; padding:12px 4px 10px; text-align:center;">
+              <div class="thi-icon" style="font-size:20px; line-height:1; margin-bottom:6px;">${scheduleIcon(s.tag)}</div>
+              <div class="thi-label" style="font-size:11px; font-weight:700; color:var(--brown-dark); line-height:1.3; word-break:keep-all; overflow-wrap:break-word;">${s.tag}</div>
             </div>
           `).join("")}
         </div>
