@@ -210,6 +210,9 @@ body{
 .section-title .count{ color:var(--accent-dark); }
 
 .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+/* 식사장소 탭 중식/석식 좌우 이미지 (grid-2와 달리 PC에서도 항상 2열 유지) */
+.mealplace-split{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+.mealplace-split img{ max-width:100%; border-radius:12px; }
 .banner{
   background: var(--bg-card);
   border:1px solid var(--border);

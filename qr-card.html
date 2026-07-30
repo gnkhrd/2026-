@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>개인 QR 명함 · 2026년 정책연수</title>
+<title>GN 커넥트 챌린지 · 2026년 정책연수</title>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
@@ -11,7 +11,7 @@
   <div class="topbar">
     <a class="back" href="index.html">‹</a>
     <div>
-      <h1>개인 QR 명함 · 네트워킹</h1>
+      <h1>GN 커넥트 챌린지</h1>
       <div class="sub">서로의 QR을 찍고 명함을 교환해보세요</div>
     </div>
   </div>
@@ -83,7 +83,7 @@
         <button class="btn btn-secondary" id="btn-open-scanner">📷 상대방 QR 스캔하기</button>
       </div>
       <div class="btn-row">
-        <a class="btn btn-primary" href="leaderboard.html">🏆 네트워킹 랭킹 보기</a>
+        <a class="btn btn-primary" href="leaderboard.html">🏆 GN 커넥트 챌린지 랭킹 보기</a>
       </div>
       <div class="btn-row">
         <button class="btn btn-outline" id="btn-switch-user">다른 사번으로 전환</button>
@@ -207,7 +207,7 @@ async function refreshScans() {
         <div class="name">${p.name}</div>
         <div class="meta">${p.org || ""}</div>
       </div>
-      <div class="time">${fmtTime(p.scannedAt)}</div>
+      <div class="time">${fmtDateTime(p.scannedAt)}</div>
     </div>
   `).join("");
   wrap.querySelectorAll(".list-item").forEach(el => {

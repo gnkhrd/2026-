@@ -8,6 +8,17 @@ function fmtTime(iso) {
   } catch (e) { return ""; }
 }
 
+// 날짜+시간을 함께 표시 (예: "09/01 14:32") — GN 커넥트 챌린지 "내가 찍은 사람들" 목록 등에 사용
+function fmtDateTime(iso) {
+  try {
+    const d = new Date(iso);
+    const p = n => String(n).padStart(2, "0");
+    const md = `${p(d.getMonth() + 1)}/${p(d.getDate())}`;
+    const hm = d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+    return `${md} ${hm}`;
+  } catch (e) { return ""; }
+}
+
 function myEmpId() { return localStorage.getItem("gn2026_my_empid") || ""; }
 function setMyEmpId(id) { localStorage.setItem("gn2026_my_empid", id); }
 function myName() { return localStorage.getItem("gn2026_my_name") || ""; }

@@ -12,11 +12,12 @@
     <a class="back" href="index.html">‹</a>
     <div>
       <h1>기타 안내</h1>
-      <div class="sub">방배정표 · 식사장소 · 총장님식사조</div>
+      <div class="sub">자리배치표 · 방배정표 · 식사장소 · 총장님식사조</div>
     </div>
   </div>
 
   <div class="info-tabs" id="info-tabs">
+    <button data-tab="seating">자리배치표</button>
     <button data-tab="room">방배정표</button>
     <button data-tab="mealplace">식사장소</button>
     <button data-tab="mealgroups">총장님식사조</button>
@@ -25,6 +26,16 @@
   <!-- 탭을 아무것도 누르지 않은 초기 상태 -->
   <div class="tab-panel active" id="tab-empty">
     <div class="card"><div class="empty">위 탭을 눌러 원하는 정보를 확인해주세요.</div></div>
+  </div>
+
+  <!-- ============ 탭 0: 자리배치표 ============ -->
+  <div class="tab-panel" id="tab-seating">
+    <div class="section-title">
+      <span>🪑 자리배치표</span>
+    </div>
+    <div class="card" id="seating-chart-box" style="padding:14px; text-align:center;">
+      <div class="empty">이미지가 아직 등록되지 않았습니다.</div>
+    </div>
   </div>
 
   <!-- ============ 탭 1: 방배정표 ============ -->
@@ -58,8 +69,40 @@
 
   <!-- ============ 탭 2: 식사장소 ============ -->
   <div class="tab-panel" id="tab-mealplace">
+
     <div class="section-title">
-      <span>🍽️ 식사장소 안내</span>
+      <span>🍳 조식</span>
+    </div>
+    <div class="card" id="meal-breakfast-box" style="padding:14px; text-align:center;">
+      <div class="empty">이미지가 아직 등록되지 않았습니다.</div>
+    </div>
+
+    <div class="section-title">
+      <span>🍚 중식</span>
+    </div>
+    <div class="mealplace-split">
+      <div class="card" id="meal-lunch-left-box" style="padding:14px; text-align:center;">
+        <div class="empty">이미지가 아직 등록되지 않았습니다.</div>
+      </div>
+      <div class="card" id="meal-lunch-right-box" style="padding:14px; text-align:center;">
+        <div class="empty">이미지가 아직 등록되지 않았습니다.</div>
+      </div>
+    </div>
+
+    <div class="section-title">
+      <span>🌙 석식</span>
+    </div>
+    <div class="mealplace-split">
+      <div class="card" id="meal-dinner-left-box" style="padding:14px; text-align:center;">
+        <div class="empty">이미지가 아직 등록되지 않았습니다.</div>
+      </div>
+      <div class="card" id="meal-dinner-right-box" style="padding:14px; text-align:center;">
+        <div class="empty">이미지가 아직 등록되지 않았습니다.</div>
+      </div>
+    </div>
+
+    <div class="section-title">
+      <span>그 외 식사 안내</span>
     </div>
     <div class="grid-2" id="banner-grid"></div>
   </div>
@@ -200,6 +243,14 @@ document.getElementById("room-filter").addEventListener("input", async (e) => {
   renderRoomSearchResult(filtered, q);
 });
 
+/* ---------- 자리배치표 이미지 ---------- */
+function loadSeatingChart() {
+  const box = document.getElementById("seating-chart-box");
+  const src = driveImageUrl(window.CONFIG.SEATING_CHART_IMAGE);
+  if (!src) return; // 기본 "준비 중" 안내 유지
+  box.innerHTML = `<img src="${src}" alt="자리배치표" style="max-width:100%; border-radius:12px;">`;
+}
+
 /* ---------- 연수원 지도 이미지 ---------- */
 function driveImageUrl(fileIdOrUrl) {
   if (!fileIdOrUrl) return "";
@@ -217,6 +268,26 @@ function loadVenueMap() {
     <img src="${src}" alt="연수원 지도" style="max-width:100%; border-radius:12px;">
     <div style="font-size:12px; color:var(--text-faint); margin-top:8px;">S : 스테이 타워 (그랜드홀이 있는 건물) · P : 플렉스 타워 (워터파크 있는 건물)</div>
   `;
+}
+
+/* ---------- 식사장소: 조식(1장) + 중식/석식(좌/우 2장 + 해당 권역) ---------- */
+function renderMealImageBox(elId, imageValue, regionsValue) {
+  const box = document.getElementById(elId);
+  const src = driveImageUrl(imageValue);
+  if (!src) return; // 기본 "준비 중" 안내 유지
+  const caption = regionsValue
+    ? `<div style="font-size:12px; color:var(--text-faint); margin-top:8px;">해당 권역: ${regionsValue}</div>`
+    : "";
+  box.innerHTML = `<img src="${src}" alt="식사장소 이미지">${caption}`;
+}
+
+function loadMealPlaceImages() {
+  const c = window.CONFIG;
+  renderMealImageBox("meal-breakfast-box", c.MEALPLACE_BREAKFAST_IMAGE, "");
+  renderMealImageBox("meal-lunch-left-box", c.MEALPLACE_LUNCH_LEFT_IMAGE, c.MEALPLACE_LUNCH_LEFT_REGIONS);
+  renderMealImageBox("meal-lunch-right-box", c.MEALPLACE_LUNCH_RIGHT_IMAGE, c.MEALPLACE_LUNCH_RIGHT_REGIONS);
+  renderMealImageBox("meal-dinner-left-box", c.MEALPLACE_DINNER_LEFT_IMAGE, c.MEALPLACE_DINNER_LEFT_REGIONS);
+  renderMealImageBox("meal-dinner-right-box", c.MEALPLACE_DINNER_RIGHT_IMAGE, c.MEALPLACE_DINNER_RIGHT_REGIONS);
 }
 
 /* ---------- 식사장소 배너 ---------- */
@@ -269,8 +340,10 @@ async function loadMealGroups() {
   }).join("");
 }
 
+loadSeatingChart();
 loadMyRoom();
 loadVenueMap();
+loadMealPlaceImages();
 loadBanners();
 loadMealGroups();
 </script>
