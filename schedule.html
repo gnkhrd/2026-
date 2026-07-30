@@ -64,7 +64,7 @@ function renderSchedule() {
     const body = rows.length
       ? rows.map(r => `
           <div class="timeline-item">
-            <div class="t">${r.time}</div>
+            <div class="t">${fmtTimeRange(r.time)}</div>
             <div class="content">
               <div class="title">${r.title}</div>
               ${r.speaker ? `<div class="speaker">${r.speaker}</div>` : ""}

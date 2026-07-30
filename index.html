@@ -220,7 +220,7 @@ async function initHome() {
     keywordLabelEl.textContent = `키워드 "${keywords.join(", ")}" · ${highlighted.length}건`;
     listWrap.innerHTML = highlighted.map(s => `
       <div class="timeline-item">
-        <div class="t" style="width:58px;">${s.date.slice(5).replace("-", "/")}<br>${s.time}</div>
+        <div class="t" style="width:58px;">${s.date.slice(5).replace("-", "/")}<br>${fmtTimeRange(s.time)}</div>
         <div class="content">
           <div class="title">${s.title}</div>
           <div class="speaker">${s.speaker || ""}</div>

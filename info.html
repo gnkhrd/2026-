@@ -80,25 +80,8 @@
     <div class="section-title">
       <span>🍚 중식</span>
     </div>
-    <div class="mealplace-split">
-      <div class="card" id="meal-lunch-left-box" style="padding:14px; text-align:center;">
-        <div class="empty">이미지가 아직 등록되지 않았습니다.</div>
-      </div>
-      <div class="card" id="meal-lunch-right-box" style="padding:14px; text-align:center;">
-        <div class="empty">이미지가 아직 등록되지 않았습니다.</div>
-      </div>
-    </div>
-
-    <div class="section-title">
-      <span>🌙 석식</span>
-    </div>
-    <div class="mealplace-split">
-      <div class="card" id="meal-dinner-left-box" style="padding:14px; text-align:center;">
-        <div class="empty">이미지가 아직 등록되지 않았습니다.</div>
-      </div>
-      <div class="card" id="meal-dinner-right-box" style="padding:14px; text-align:center;">
-        <div class="empty">이미지가 아직 등록되지 않았습니다.</div>
-      </div>
+    <div class="card" id="meal-lunch-box" style="padding:14px; text-align:center;">
+      <div class="empty">이미지가 아직 등록되지 않았습니다.</div>
     </div>
 
     <div class="section-title">
@@ -270,24 +253,33 @@ function loadVenueMap() {
   `;
 }
 
-/* ---------- 식사장소: 조식(1장) + 중식/석식(좌/우 2장 + 해당 권역) ---------- */
-function renderMealImageBox(elId, imageValue, regionsValue) {
+/* ---------- 식사장소: 조식(이미지 1장) + 중식(이미지 1장 + 하단 좌/우 권역 문구) ---------- */
+function renderMealImageBox(elId, imageValue) {
   const box = document.getElementById(elId);
   const src = driveImageUrl(imageValue);
   if (!src) return; // 기본 "준비 중" 안내 유지
-  const caption = regionsValue
-    ? `<div style="font-size:12px; color:var(--text-faint); margin-top:8px;">해당 권역: ${regionsValue}</div>`
-    : "";
-  box.innerHTML = `<img src="${src}" alt="식사장소 이미지">${caption}`;
+  box.innerHTML = `<img src="${src}" alt="식사장소 이미지">`;
+}
+
+function renderLunchBox() {
+  const c = window.CONFIG;
+  const box = document.getElementById("meal-lunch-box");
+  const src = driveImageUrl(c.MEALPLACE_LUNCH_IMAGE);
+  if (!src) return; // 기본 "준비 중" 안내 유지
+  const left = c.MEALPLACE_LUNCH_LEFT_REGIONS;
+  const right = c.MEALPLACE_LUNCH_RIGHT_REGIONS;
+  const captionRow = (left || right) ? `
+    <div class="mealplace-split" style="margin:10px 0 0;">
+      <div style="font-size:12px; color:var(--text-faint);">${left ? `좌: ${left}` : ""}</div>
+      <div style="font-size:12px; color:var(--text-faint);">${right ? `우: ${right}` : ""}</div>
+    </div>
+  ` : "";
+  box.innerHTML = `<img src="${src}" alt="중식 장소">${captionRow}`;
 }
 
 function loadMealPlaceImages() {
-  const c = window.CONFIG;
-  renderMealImageBox("meal-breakfast-box", c.MEALPLACE_BREAKFAST_IMAGE, "");
-  renderMealImageBox("meal-lunch-left-box", c.MEALPLACE_LUNCH_LEFT_IMAGE, c.MEALPLACE_LUNCH_LEFT_REGIONS);
-  renderMealImageBox("meal-lunch-right-box", c.MEALPLACE_LUNCH_RIGHT_IMAGE, c.MEALPLACE_LUNCH_RIGHT_REGIONS);
-  renderMealImageBox("meal-dinner-left-box", c.MEALPLACE_DINNER_LEFT_IMAGE, c.MEALPLACE_DINNER_LEFT_REGIONS);
-  renderMealImageBox("meal-dinner-right-box", c.MEALPLACE_DINNER_RIGHT_IMAGE, c.MEALPLACE_DINNER_RIGHT_REGIONS);
+  renderMealImageBox("meal-breakfast-box", window.CONFIG.MEALPLACE_BREAKFAST_IMAGE);
+  renderLunchBox();
 }
 
 /* ---------- 식사장소 배너 ---------- */

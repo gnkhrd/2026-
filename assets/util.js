@@ -19,6 +19,16 @@ function fmtDateTime(iso) {
   } catch (e) { return ""; }
 }
 
+// 일정표의 "시간" 칸을 안전하게 표시용으로 가공합니다.
+// Schedule 시트에 "12:10-13:00"처럼 "-"로 적든 "18:00~18:10"처럼 "~"로 적든
+// 항상 시작~끝을 줄바꿈(두 줄)으로 통일해서, 좁은 칸에서 제목과 글자가 겹치는 걸 방지합니다.
+function fmtTimeRange(raw) {
+  if (!raw) return "";
+  const parts = String(raw).split(/[-~]/).map(s => s.trim()).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0]}-<br>${parts[1]}`;
+  return String(raw).trim();
+}
+
 function myEmpId() { return localStorage.getItem("gn2026_my_empid") || ""; }
 function setMyEmpId(id) { localStorage.setItem("gn2026_my_empid", id); }
 function myName() { return localStorage.getItem("gn2026_my_name") || ""; }
