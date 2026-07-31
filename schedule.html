@@ -73,7 +73,7 @@ function renderSchedule() {
       ? rows.map(r => {
           const split = splitSessionTitle(r.title);
           const content = split
-            ? `<div class="title">${split.desc}</div><div class="title-label">${split.label}</div>`
+            ? `<div class="title-label">${split.label}</div><div class="title">${split.desc}</div>`
             : `<div class="title">${r.title}</div>`;
           return `
           <div class="timeline-item">
