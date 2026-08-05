@@ -122,7 +122,7 @@
     return { ok: true, top10, orgRanking, me, stats, config: LEADERBOARD_CONFIG };
   }
 
-  // 모의고사/설문조사 결과 비공개 보호용 암호 (MOCK 모드 테스트용 — backend/Code.gs의 ADMIN_PIN 기본값과 동일)
+  // 라이브 퀴즈쇼/설문조사 결과 비공개 보호용 암호 (MOCK 모드 테스트용 — backend/Code.gs의 ADMIN_PIN 기본값과 동일)
   const MOCK_ADMIN_PIN = "0000";
 
   // 실서버 호출 — GAS는 커스텀 헤더/JSON Content-Type을 쓰면 CORS 프리플라이트에 걸리므로
@@ -292,7 +292,7 @@
       return callServer("getLeaderboard", { empId: empId || "" });
     },
 
-    // ---------- 모의고사 ----------
+    // ---------- 라이브 퀴즈쇼 ----------
     async getQuizQuestions() {
       if (IS_MOCK) {
         await delay(150);

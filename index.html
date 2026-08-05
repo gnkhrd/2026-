@@ -109,11 +109,11 @@
     <a class="menu-card" href="quiz.html">
       <div class="icon" style="position:relative;">
         📝
-        <span class="quiz-live-badge" id="quiz-live-badge" style="display:none;">LIVE</span>
+        <span class="quiz-live-badge" id="quiz-live-badge" style="display:none;"></span>
       </div>
       <div class="body">
-        <div class="label">모의고사</div>
-        <div class="title">모의고사</div>
+        <div class="label">라이브 퀴즈쇼</div>
+        <div class="title">라이브 퀴즈쇼</div>
         <div class="desc">2일차 오전부터 응시 가능, 4지선다 문제풀이</div>
       </div>
       <div class="arrow">›</div>
@@ -269,7 +269,7 @@ async function initHome() {
   }
 }
 
-// 모의고사 카드에 붙는 "LIVE" 배지 — 모의고사가 실제로 열려있는 시간대에만 표시됩니다.
+// 라이브 퀴즈쇼 카드에 붙는 빨간 원(방송용 LIVE 표시) — 실제로 열려있는 시간대에만 표시됩니다.
 function isQuizOpenNow() {
   const cfg = window.CONFIG.QUIZ_OPEN_AT;
   if (!cfg) return true;

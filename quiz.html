@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>모의고사 · 2026년 정책연수</title>
+<title>라이브 퀴즈쇼 · 2026년 정책연수</title>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
@@ -11,7 +11,7 @@
   <div class="topbar">
     <a class="back" href="index.html">‹</a>
     <div>
-      <h1>모의고사</h1>
+      <h1>라이브 퀴즈쇼</h1>
       <div class="sub">4지선다 문제를 풀고 정답률과 소요시간을 확인해보세요</div>
     </div>
   </div>
@@ -160,7 +160,7 @@ document.getElementById("quiz-start-btn").addEventListener("click", async () => 
   if (!isQuizOpen()) {
     const cfg = window.CONFIG.QUIZ_OPEN_AT;
     document.getElementById("quiz-closed-text").textContent =
-      cfg ? `모의고사는 ${cfg.date} ${cfg.time}부터 응시할 수 있습니다.` : "모의고사가 아직 준비 중입니다.";
+      cfg ? `라이브 퀴즈쇼는 ${cfg.date} ${cfg.time}부터 응시할 수 있습니다.` : "라이브 퀴즈쇼가 아직 준비 중입니다.";
     document.getElementById("quiz-closed").style.display = "";
     return;
   }
