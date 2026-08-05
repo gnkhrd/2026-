@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>설문조사 · 2026년 정책연수</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a class="back" href="index.html">‹</a>
+    <div>
+      <h1>설문조사</h1>
+      <div class="sub">만족도 및 종합평가 — 소중한 의견 부탁드립니다</div>
+    </div>
+  </div>
+
+  <div class="card" id="survey-box" style="text-align:center; padding:28px 20px;">
+    <div class="empty" id="survey-empty" style="display:none;">설문조사 링크가 아직 등록되지 않았습니다.</div>
+  </div>
+</div>
+
+<script src="assets/config.js"></script>
+<script>
+(function () {
+  const url = window.CONFIG.SURVEY_FORM_URL;
+  const box = document.getElementById("survey-box");
+  if (!url) {
+    document.getElementById("survey-empty").style.display = "";
+    return;
+  }
+  box.innerHTML = `
+    <div style="font-size:15px; color:var(--text-dim); margin-bottom:18px; line-height:1.5;">
+      설문조사는 구글폼으로 진행됩니다.<br>아래 버튼을 누르면 새 창에서 설문을 작성할 수 있어요.
+    </div>
+    <a class="btn btn-primary" href="${url}" target="_blank" rel="noopener">📝 설문조사 작성하러 가기</a>
+  `;
+})();
+</script>
+</body>
+</html>

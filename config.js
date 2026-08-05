@@ -4,7 +4,7 @@
 window.CONFIG = {
   // Google Apps Script 배포 후 발급되는 웹앱 URL을 여기에 붙여넣으세요.
   // 비워두면 자동으로 MOCK(가짜 데이터) 모드로 동작합니다 — 배포 없이 바로 테스트 가능.
-  APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbyV2347WNzUuNCKEgxhzWqQZpZTAWjGW8X1ozluxeESYkFF4VOT75_IFaZsrLZQyovLrg/exec",
+  APPS_SCRIPT_URL: "https://script.google.com/macros/library/d/1HR4yW4NGr_ZLO9Gi-f6eQlK_r_kbwd4owU7U7s-a122PcVCJtnDKFwrK/5",
 
   EVENT_NAME: "2026년 정책연수",
   EVENT_DATES: ["2026-09-01", "2026-09-02", "2026-09-03"],
@@ -39,5 +39,16 @@ window.CONFIG = {
 
   // 기타안내 > 자리배치표 탭(가장 앞 탭)에 보여줄 이미지 1장.
   // VENUE_MAP_IMAGE와 동일한 방식(구글드라이브 링크/파일ID)으로 등록하세요.
-  SEATING_CHART_IMAGE: ""
+  SEATING_CHART_IMAGE: "",
+
+  // 모의고사(quiz.html)가 열리는 시각 — 이 날짜/시각 이후로는 별도 종료시각 없이 계속 열려있습니다(상시오픈).
+  QUIZ_OPEN_AT: { date: "2026-09-02", time: "11:10" },
+
+  // 설문조사(만족도/종합평가)는 자체 제작 대신 기존에 쓰던 구글폼을 그대로 사용합니다.
+  // 아래는 2025년 폼 링크입니다 — 2026년 연수 주제/발표자/날짜에 맞게 폼을 복제·수정한 뒤,
+  // 그 새 폼의 링크로 반드시 교체하세요. (폼 자체의 "응답 > 요약" 탭에서 항목별 평균/그래프를 바로 볼 수 있습니다.)
+  SURVEY_FORM_URL: "https://docs.google.com/forms/d/e/1FAIpQLSdp4R0lYmJ5sDORh9Qtc08Lv3J_XfTKC5tnR8fkJIAoFgtRtg/viewform",
+
+  // 설문조사는 기타안내(info.html) 탭 안에 노출됩니다 — 이 날짜/시각 이후로 계속 열려있습니다(상시오픈, 종료시각 없음).
+  SURVEY_TAB_OPEN_AT: { date: "2026-09-03", time: "12:30" }
 };

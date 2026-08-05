@@ -188,9 +188,9 @@ async function loadLeaderboard() {
         <div class="rank-num">${ordinalBadge(i + 1)}</div>
         <div>
           <div class="org-name">${o.org}</div>
-          <div class="org-meta">참여 ${o.memberCount}명 · 누적 스캔 ${o.totalScans}건</div>
+          <div class="org-meta">참여 ${o.memberCount}명 / 출석 ${o.attendanceCount}명 · 누적 스캔 ${o.totalScans}건 · 총점 ${o.totalScore}점</div>
         </div>
-        <div class="score">${o.totalScore}<span class="unit">점</span></div>
+        <div class="score">${o.avgScore}<span class="unit">평균</span></div>
       </div>
     `).join("");
   }

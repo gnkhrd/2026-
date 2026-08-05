@@ -12,7 +12,7 @@
     <a class="back" href="index.html">‹</a>
     <div>
       <h1>기타 안내</h1>
-      <div class="sub">자리배치표 · 방배정표 · 식사장소 · 총장님식사조</div>
+      <div class="sub">자리배치표 · 방배정표 · 식사장소 · 총장님식사조 · 설문조사</div>
     </div>
   </div>
 
@@ -21,6 +21,7 @@
     <button data-tab="room">방배정표</button>
     <button data-tab="mealplace">식사장소</button>
     <button data-tab="mealgroups">총장님식사조</button>
+    <button data-tab="survey">설문조사</button>
   </div>
 
   <!-- 탭을 아무것도 누르지 않은 초기 상태 -->
@@ -94,6 +95,14 @@
     <div id="meal-groups">
       <div class="card"><div class="empty">불러오는 중...</div></div>
     </div>
+  </div>
+
+  <!-- ============ 탭 4: 설문조사 ============ -->
+  <div class="tab-panel" id="tab-survey">
+    <div class="section-title">
+      <span>🗳️ 설문조사</span>
+    </div>
+    <div class="card" id="survey-tab-box" style="text-align:center; padding:28px 20px;"></div>
   </div>
 
 </div>
@@ -314,11 +323,42 @@ async function loadMealGroups() {
   }).join("");
 }
 
+/* ---------- 설문조사: 구글폼 링크, 지정 시각부터 노출(상시오픈) ---------- */
+function isSurveyTabOpen() {
+  const cfg = window.CONFIG.SURVEY_TAB_OPEN_AT;
+  if (!cfg) return true;
+  const kst = nowKST();
+  if (kst.date < cfg.date) return false;
+  if (kst.date === cfg.date && kst.hhmm < cfg.time) return false;
+  return true;
+}
+
+function loadSurveyTab() {
+  const box = document.getElementById("survey-tab-box");
+  const cfg = window.CONFIG.SURVEY_TAB_OPEN_AT;
+  if (!isSurveyTabOpen()) {
+    box.innerHTML = `<div class="empty">설문조사는 ${cfg ? cfg.date + " " + cfg.time : "행사 종료 후"}부터 작성할 수 있습니다.</div>`;
+    return;
+  }
+  const url = window.CONFIG.SURVEY_FORM_URL;
+  if (!url) {
+    box.innerHTML = '<div class="empty">설문조사 링크가 아직 등록되지 않았습니다.</div>';
+    return;
+  }
+  box.innerHTML = `
+    <div style="font-size:15px; color:var(--text-dim); margin-bottom:18px; line-height:1.5;">
+      설문조사는 구글폼으로 진행됩니다.<br>아래 버튼을 누르면 새 창에서 설문을 작성할 수 있어요.
+    </div>
+    <a class="btn btn-primary" href="${url}" target="_blank" rel="noopener">📝 설문조사 작성하러 가기</a>
+  `;
+}
+
 loadSeatingChart();
 loadMyRoom();
 loadVenueMap();
 loadMealPlaceImages();
 loadMealGroups();
+loadSurveyTab();
 </script>
 </body>
 </html>

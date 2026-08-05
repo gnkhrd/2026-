@@ -86,5 +86,12 @@ window.MOCK_SEED = {
     { date: "2026-09-02", meal: "저녁", target: "경기 대표직책", menu: "열무 보리비빔밥 반상", count: "10명", members: "김민애, 정근진, 김지연, 강은영, 김기영, 주진관, 문상록, 조은승, 손혜영, 정욱재" },
     { date: "2026-09-03", meal: "아침", target: "전북 대표직책", menu: "조식뷔페", count: "8명", members: "유기용, 김경환, 김완진, 김미선, 강민숙, 조현경, 최은희, 조자영" },
     { date: "2026-09-03", meal: "점심", target: "충청 대표직책", menu: "소갈비살 영양솥밥", count: "8명", members: "김길수, 김성찬, 백순규, 최은희, 강은정, 김정민, 채종병, 이일수" }
+  ],
+  // 모의고사 샘플 문항 (구조 테스트용 임시 문항입니다 — 실제 문항으로 Google Sheet의 Quiz 탭에서 교체하세요).
+  // answer는 1~4 중 정답 보기 번호. choice1~4가 실제 화면에 보이는 4지선다 보기입니다.
+  quiz: [
+    { qid: "Q1", order: 1, question: "(샘플) 이번 정책연수의 대주제는 무엇일까요?", choice1: "AI시대, 공동체로 아동행복을 연결하다", choice2: "굿네이버스, 아동행복의 방향을 제시하다", choice3: "함께 걷는 아동복지", choice4: "미래를 여는 굿네이버스", answer: 1 },
+    { qid: "Q2", order: 2, question: "(샘플) 이번 정책연수는 몇 박 며칠 일정일까요?", choice1: "1박 2일", choice2: "2박 3일", choice3: "3박 4일", choice4: "당일 일정", answer: 2 },
+    { qid: "Q3", order: 3, question: "(샘플) 정책연수 장소는 어디일까요?", choice1: "스플라스 리솜", choice2: "제주 신라호텔", choice3: "설악 켄싱턴", choice4: "경주 힐튼", answer: 1 }
   ]
 };

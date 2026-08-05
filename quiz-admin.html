@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>모의고사 결과 (관리자) · 2026년 정책연수</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a class="back" href="index.html">‹</a>
+    <div>
+      <h1>모의고사 결과</h1>
+      <div class="sub">담당자 전용 — 전체 공개되지 않습니다</div>
+    </div>
+  </div>
+
+  <div id="pin-box" class="card">
+    <div class="field">
+      <label>관리자 암호(PIN)</label>
+      <input type="password" id="pin-input" placeholder="암호를 입력하세요" inputmode="numeric">
+    </div>
+    <div id="pin-result"></div>
+    <button class="btn btn-primary" id="pin-btn">결과 보기</button>
+  </div>
+
+  <div id="result-wrap" style="display:none;">
+    <div class="section-title">
+      <span>① 만점자 중 가장 빠른 순</span>
+      <span class="count" id="perfect-count"></span>
+    </div>
+    <div class="card mobile-only" id="perfect-list" style="padding:6px 14px;"></div>
+    <div class="card desktop-only" style="padding:14px;">
+      <div class="att-table-wrap">
+        <table class="att-table">
+          <thead><tr><th style="width:56px;">순위</th><th>성명</th><th>소속</th><th style="width:90px;">정답수</th><th style="width:100px;">소요시간</th></tr></thead>
+          <tbody id="perfect-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section-title">
+      <span>② 소속별 평균 점수 (출석 인원 기준)</span>
+    </div>
+    <div class="card" id="org-bar-card"></div>
+  </div>
+</div>
+
+<script src="assets/config.js"></script>
+<script src="assets/mockdata.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/util.js"></script>
+<script>
+function fmtDuration(sec) {
+  const s = Number(sec) || 0;
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return m > 0 ? `${m}분 ${r}초` : `${r}초`;
+}
+
+document.getElementById("pin-btn").addEventListener("click", async () => {
+  const pin = document.getElementById("pin-input").value.trim();
+  const resultEl = document.getElementById("pin-result");
+  if (!pin) { resultEl.innerHTML = '<div class="notice error">암호를 입력해주세요.</div>'; return; }
+  const btn = document.getElementById("pin-btn");
+  btn.disabled = true; btn.textContent = "확인 중...";
+  const res = await API.getQuizLeaderboard(pin);
+  btn.disabled = false; btn.textContent = "결과 보기";
+  if (!res.ok) {
+    resultEl.innerHTML = `<div class="notice error">${res.message}</div>`;
+    return;
+  }
+  document.getElementById("pin-box").style.display = "none";
+  document.getElementById("result-wrap").style.display = "";
+
+  // ① 만점자 중 가장 빠른 순
+  const perfect = res.perfectScorers || [];
+  document.getElementById("perfect-count").textContent = `${perfect.length}명 만점`;
+  const mobileWrap = document.getElementById("perfect-list");
+  const tbody = document.getElementById("perfect-table-body");
+  if (!perfect.length) {
+    mobileWrap.innerHTML = '<div class="empty">아직 만점자가 없습니다.</div>';
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">아직 만점자가 없습니다.</td></tr>';
+  } else {
+    mobileWrap.innerHTML = perfect.map((r, i) => `
+      <div class="list-item">
+        <div class="avatar">${initials(r.name)}</div>
+        <div>
+          <div class="name">${i + 1}위 · ${r.name}</div>
+          <div class="meta">${r.org || ""} · 정답 ${r.correctCount}/${r.totalCount}</div>
+        </div>
+        <div class="time">${fmtDuration(r.durationSec)}</div>
+      </div>
+    `).join("");
+    tbody.innerHTML = perfect.map((r, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${r.name}</td>
+        <td>${r.org || ""}</td>
+        <td>${r.correctCount}/${r.totalCount}</td>
+        <td>${fmtDuration(r.durationSec)}</td>
+      </tr>
+    `).join("");
+  }
+
+  // ② 소속별 평균 점수 (막대그래프)
+  const orgRanking = res.orgRanking || [];
+  const barCard = document.getElementById("org-bar-card");
+  if (!orgRanking.length) {
+    barCard.innerHTML = '<div class="empty">출석 데이터가 없습니다.</div>';
+    return;
+  }
+  const maxAvg = Math.max(...orgRanking.map(o => o.avgScore), 1);
+  barCard.innerHTML = orgRanking.map(o => {
+    const pct = Math.max(4, Math.round((o.avgScore / maxAvg) * 100));
+    return `
+      <div class="survey-bar-row">
+        <div class="survey-bar-label"><span>${o.org}</span><span class="avg">${o.avgScore} 점 (출석 ${o.attendanceCount}명)</span></div>
+        <div class="survey-bar-track"><div class="survey-bar-fill" style="width:${pct}%"></div></div>
+      </div>
+    `;
+  }).join("");
+});
+</script>
+</body>
+</html>

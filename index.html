@@ -101,7 +101,20 @@
       <div class="body">
         <div class="label">안내</div>
         <div class="title">기타 안내</div>
-        <div class="desc">방배정표 · 식사장소 · 연수지도 · 식사조</div>
+        <div class="desc">방배정표 · 식사장소 · 연수지도 · 식사조 · 설문조사</div>
+      </div>
+      <div class="arrow">›</div>
+    </a>
+
+    <a class="menu-card" href="quiz.html">
+      <div class="icon" style="position:relative;">
+        📝
+        <span class="quiz-live-badge" id="quiz-live-badge" style="display:none;">LIVE</span>
+      </div>
+      <div class="body">
+        <div class="label">모의고사</div>
+        <div class="title">모의고사</div>
+        <div class="desc">2일차 오전부터 응시 가능, 4지선다 문제풀이</div>
       </div>
       <div class="arrow">›</div>
     </a>
@@ -256,7 +269,22 @@ async function initHome() {
   }
 }
 
+// 모의고사 카드에 붙는 "LIVE" 배지 — 모의고사가 실제로 열려있는 시간대에만 표시됩니다.
+function isQuizOpenNow() {
+  const cfg = window.CONFIG.QUIZ_OPEN_AT;
+  if (!cfg) return true;
+  const kst = nowKST();
+  if (kst.date < cfg.date) return false;
+  if (kst.date === cfg.date && kst.hhmm < cfg.time) return false;
+  return true;
+}
+function updateQuizBadge() {
+  const badge = document.getElementById("quiz-live-badge");
+  if (badge) badge.style.display = isQuizOpenNow() ? "" : "none";
+}
+
 initHome();
+updateQuizBadge();
 </script>
 </body>
 </html>

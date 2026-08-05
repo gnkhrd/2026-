@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>모의고사 · 2026년 정책연수</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a class="back" href="index.html">‹</a>
+    <div>
+      <h1>모의고사</h1>
+      <div class="sub">4지선다 문제를 풀고 정답률과 소요시간을 확인해보세요</div>
+    </div>
+  </div>
+
+  <div id="quiz-closed" class="card" style="display:none;">
+    <div class="empty" id="quiz-closed-text"></div>
+  </div>
+
+  <div id="quiz-identify" class="card" style="display:none;">
+    <div class="field">
+      <label>사번</label>
+      <input type="text" id="qz-empId" autocapitalize="characters" placeholder="예: A10001">
+    </div>
+    <div class="field">
+      <label>성명</label>
+      <input type="text" id="qz-name" placeholder="예: 김민준">
+    </div>
+    <div id="quiz-identify-result"></div>
+    <button class="btn btn-primary" id="quiz-start-btn">시작하기</button>
+  </div>
+
+  <div id="quiz-form" class="card" style="display:none;"></div>
+
+  <div id="quiz-result" class="card" style="display:none;"></div>
+</div>
+
+<script src="assets/config.js"></script>
+<script src="assets/mockdata.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/util.js"></script>
+<script>
+let QUESTIONS = [];
+let quizStartClientTime = null; // "시작하기" 클릭 시점(브라우저 시각) — 소요시간은 이 값을 기준으로 직접 측정합니다.
+                                 // (사회자 안내로 다 함께 몰려 입장하는 상황에서 서버가 대기열 때문에
+                                 //  시작 처리를 지연해도, 소요시간 측정이 그 지연에 영향받지 않도록 하기 위함)
+
+// "상시오픈" 시간대: 지정한 날짜/시각부터는 계속 열려있고 별도 종료시각이 없습니다.
+function isQuizOpen() {
+  const cfg = window.CONFIG.QUIZ_OPEN_AT;
+  if (!cfg) return true;
+  const kst = nowKST();
+  if (kst.date < cfg.date) return false;
+  if (kst.date === cfg.date && kst.hhmm < cfg.time) return false;
+  return true;
+}
+
+function fmtDuration(sec) {
+  const s = Number(sec) || 0;
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return m > 0 ? `${m}분 ${r}초` : `${r}초`;
+}
+
+function showIdentifyForm() {
+  const box = document.getElementById("quiz-identify");
+  box.style.display = "";
+  const empId = myEmpId(), name = myName();
+  if (empId) document.getElementById("qz-empId").value = empId;
+  if (name) document.getElementById("qz-name").value = name;
+}
+
+async function renderQuizForm() {
+  const res = await API.getQuizQuestions();
+  QUESTIONS = res.ok ? res.list : [];
+  const box = document.getElementById("quiz-form");
+  if (!QUESTIONS.length) {
+    box.innerHTML = '<div class="empty">아직 등록된 문제가 없습니다. 잠시 후 다시 시도해주세요.</div>';
+    box.style.display = "";
+    return;
+  }
+  box.innerHTML = QUESTIONS.map((q, i) => `
+    <div class="quiz-q" data-qidx="${i}">
+      <div class="quiz-q-title">${i + 1}. ${q.question}</div>
+      <div class="quiz-choices">
+        ${[1, 2, 3, 4].map(n => `
+          <label class="quiz-choice">
+            <input type="radio" name="q${i}" value="${n}">
+            <span>${["①", "②", "③", "④"][n - 1]} ${q["choice" + n] || ""}</span>
+          </label>
+        `).join("")}
+      </div>
+    </div>
+  `).join("") + `
+    <div id="quiz-submit-result"></div>
+    <button class="btn btn-primary" id="quiz-submit-btn">제출하기</button>
+  `;
+  box.style.display = "";
+  document.getElementById("quiz-submit-btn").addEventListener("click", onSubmitQuiz);
+}
+
+async function onSubmitQuiz() {
+  const resultEl = document.getElementById("quiz-submit-result");
+  const answers = QUESTIONS.map((q, i) => {
+    const checked = document.querySelector(`input[name="q${i}"]:checked`);
+    return checked ? checked.value : "";
+  });
+  if (answers.some(a => !a)) {
+    resultEl.innerHTML = '<div class="notice error">모든 문항에 답을 선택해주세요.</div>';
+    return;
+  }
+  const btn = document.getElementById("quiz-submit-btn");
+  btn.disabled = true; btn.textContent = "제출 중...";
+  const durationSec = quizStartClientTime ? Math.max(0, Math.round((Date.now() - quizStartClientTime) / 1000)) : undefined;
+  const res = await API.submitQuiz({ empId: myEmpId(), answers, durationSec });
+  btn.disabled = false; btn.textContent = "제출하기";
+  if (!res.ok) {
+    resultEl.innerHTML = `<div class="notice error">${res.message}</div>`;
+    return;
+  }
+  document.getElementById("quiz-form").style.display = "none";
+  const resBox = document.getElementById("quiz-result");
+  resBox.style.display = "";
+  resBox.innerHTML = `
+    <div class="notice success">제출 완료!</div>
+    <div class="quiz-result-score">${res.correctCount} / ${res.totalCount} 문제 정답</div>
+    <div class="quiz-result-time">소요시간: ${fmtDuration(res.durationSec)}</div>
+    <div style="font-size:12px; color:var(--text-faint); margin-top:8px;">전체 순위는 담당자를 통해 별도로 안내됩니다.</div>
+  `;
+}
+
+document.getElementById("quiz-start-btn").addEventListener("click", async () => {
+  const empId = document.getElementById("qz-empId").value.trim();
+  const name = document.getElementById("qz-name").value.trim();
+  const resultEl = document.getElementById("quiz-identify-result");
+  if (!empId || !name) {
+    resultEl.innerHTML = '<div class="notice error">사번과 성명을 모두 입력해주세요.</div>';
+    return;
+  }
+  const btn = document.getElementById("quiz-start-btn");
+  btn.disabled = true; btn.textContent = "확인 중...";
+  const clickTime = Date.now(); // 소요시간 측정 기준점 — 서버 응답을 기다리기 전, 클릭한 그 순간부터 잽니다.
+  const res = await API.startQuiz({ empId, name });
+  btn.disabled = false; btn.textContent = "시작하기";
+  if (!res.ok) {
+    resultEl.innerHTML = `<div class="notice error">${res.message}</div>`;
+    return;
+  }
+  quizStartClientTime = clickTime;
+  setMyEmpId(empId);
+  setMyName(name);
+  document.getElementById("quiz-identify").style.display = "none";
+  renderQuizForm();
+});
+
+(function init() {
+  if (!isQuizOpen()) {
+    const cfg = window.CONFIG.QUIZ_OPEN_AT;
+    document.getElementById("quiz-closed-text").textContent =
+      cfg ? `모의고사는 ${cfg.date} ${cfg.time}부터 응시할 수 있습니다.` : "모의고사가 아직 준비 중입니다.";
+    document.getElementById("quiz-closed").style.display = "";
+    return;
+  }
+  showIdentifyForm();
+})();
+</script>
+</body>
+</html>

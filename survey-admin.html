@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>설문조사 결과 (관리자) · 2026년 정책연수</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a class="back" href="index.html">‹</a>
+    <div>
+      <h1>설문조사 결과</h1>
+      <div class="sub">담당자 전용 — 전체 공개되지 않습니다</div>
+    </div>
+  </div>
+
+  <div id="pin-box" class="card">
+    <div class="field">
+      <label>관리자 암호(PIN)</label>
+      <input type="password" id="pin-input" placeholder="암호를 입력하세요" inputmode="numeric">
+    </div>
+    <div id="pin-result"></div>
+    <button class="btn btn-primary" id="pin-btn">결과 보기</button>
+  </div>
+
+  <div id="result-wrap" style="display:none;">
+    <div class="section-title">
+      <span>항목별 평균 (5점 만점)</span>
+      <span class="count" id="result-count"></span>
+    </div>
+    <div class="card" id="bar-card"></div>
+
+    <div class="section-title">
+      <span>응답 목록 · 종합의견</span>
+    </div>
+    <div class="card" id="response-list" style="padding:6px 14px;"></div>
+  </div>
+</div>
+
+<script src="assets/config.js"></script>
+<script src="assets/mockdata.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/util.js"></script>
+<script>
+const ITEM_LABELS = {
+  item1: "전반적 만족도",
+  item2: "강의·발표 내용",
+  item3: "진행·운영",
+  item4: "숙소·식사",
+  item5: "재참여 의향"
+};
+
+document.getElementById("pin-btn").addEventListener("click", async () => {
+  const pin = document.getElementById("pin-input").value.trim();
+  const resultEl = document.getElementById("pin-result");
+  if (!pin) { resultEl.innerHTML = '<div class="notice error">암호를 입력해주세요.</div>'; return; }
+  const btn = document.getElementById("pin-btn");
+  btn.disabled = true; btn.textContent = "확인 중...";
+  const res = await API.getSurveyResults(pin);
+  btn.disabled = false; btn.textContent = "결과 보기";
+  if (!res.ok) {
+    resultEl.innerHTML = `<div class="notice error">${res.message}</div>`;
+    return;
+  }
+  document.getElementById("pin-box").style.display = "none";
+  document.getElementById("result-wrap").style.display = "";
+  document.getElementById("result-count").textContent = `${res.count}명 응답`;
+
+  const barCard = document.getElementById("bar-card");
+  barCard.innerHTML = Object.keys(ITEM_LABELS).map(key => {
+    const avg = res.averages[key] || 0;
+    const pct = Math.min(100, Math.round((avg / 5) * 100));
+    return `
+      <div class="survey-bar-row">
+        <div class="survey-bar-label"><span>${ITEM_LABELS[key]}</span><span class="avg">${avg.toFixed ? avg.toFixed(1) : avg} / 5.0</span></div>
+        <div class="survey-bar-track"><div class="survey-bar-fill" style="width:${pct}%"></div></div>
+      </div>
+    `;
+  }).join("");
+
+  const listWrap = document.getElementById("response-list");
+  if (!res.list.length) {
+    listWrap.innerHTML = '<div class="empty">아직 제출된 응답이 없습니다.</div>';
+    return;
+  }
+  listWrap.innerHTML = res.list.map(r => `
+    <div class="list-item" style="align-items:flex-start;">
+      <div class="avatar">${initials(r.name)}</div>
+      <div style="flex:1;">
+        <div class="name">${r.name} <span style="font-weight:400; color:var(--text-faint);">${r.org || ""} ${r.role || ""}</span></div>
+        <div class="meta">만족도 ${r.item1} · 내용 ${r.item2} · 운영 ${r.item3} · 숙소식사 ${r.item4} · 재참여 ${r.item5}</div>
+        ${r.comment ? `<div style="font-size:13px; color:var(--text); margin-top:4px;">“${r.comment}”</div>` : ""}
+      </div>
+    </div>
+  `).join("");
+});
+</script>
+</body>
+</html>
