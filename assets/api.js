@@ -17,7 +17,9 @@
         attendance: (window.MOCK_SEED.attendance || []).slice(),
         profiles: window.MOCK_SEED.profiles.slice(),
         scanlog: (window.MOCK_SEED.scanlog || []).slice(),
-        schedule: window.MOCK_SEED.schedule.slice()
+        schedule: window.MOCK_SEED.schedule.slice(),
+        quizResponses: [],
+        surveyResponses: []
       };
       saveDB(db);
     }
@@ -83,6 +85,13 @@
     });
     individual.sort((a, b) => b.score - a.score);
     const top10 = individual.slice(0, 10);
+
+    // 소속별 평균 점수 = 점수 합계 ÷ 그 소속 출석체크 인원수 (Code.gs의 actionGetLeaderboard_와 동일 로직)
+    const attendanceCountByOrg = {};
+    db.attendance.forEach(a => {
+      const org = a.org || "(미지정)";
+      attendanceCountByOrg[org] = (attendanceCountByOrg[org] || 0) + 1;
+    });
     const orgMap = {};
     individual.forEach(ind => {
       const org = ind.org || "(미지정)";
@@ -91,7 +100,12 @@
       orgMap[org].memberCount += 1;
       orgMap[org].totalScans += ind.uniqueCount;
     });
-    const orgRanking = Object.values(orgMap).sort((a, b) => b.totalScore - a.totalScore);
+    const orgRanking = Object.keys(attendanceCountByOrg).map(org => {
+      const bucket = orgMap[org] || { org, totalScore: 0, memberCount: 0, totalScans: 0 };
+      const attendanceCount = attendanceCountByOrg[org];
+      const avgScore = attendanceCount > 0 ? Math.round((bucket.totalScore / attendanceCount) * 10) / 10 : 0;
+      return { ...bucket, attendanceCount, avgScore };
+    }).sort((a, b) => b.avgScore - a.avgScore);
     let me = null;
     if (myEmpId) {
       const idx = individual.findIndex(i => String(i.empId) === String(myEmpId));
@@ -107,6 +121,9 @@
     };
     return { ok: true, top10, orgRanking, me, stats, config: LEADERBOARD_CONFIG };
   }
+
+  // 라이브 퀴즈쇼/설문조사 결과 비공개 보호용 암호 (MOCK 모드 테스트용 — backend/Code.gs의 ADMIN_PIN 기본값과 동일)
+  const MOCK_ADMIN_PIN = "0000";
 
   // 실서버 호출 — GAS는 커스텀 헤더/JSON Content-Type을 쓰면 CORS 프리플라이트에 걸리므로
   // text/plain 으로 보내고 서버(Code.gs)에서 JSON.parse 하는 방식을 사용합니다.
@@ -273,6 +290,131 @@
     async getLeaderboard(empId) {
       if (IS_MOCK) { await delay(200); return computeLeaderboard_(loadDB(), empId); }
       return callServer("getLeaderboard", { empId: empId || "" });
+    },
+
+    // ---------- 라이브 퀴즈쇼 ----------
+    async getQuizQuestions() {
+      if (IS_MOCK) {
+        await delay(150);
+        const list = (window.MOCK_SEED.quiz || []).slice().sort((a, b) => a.order - b.order)
+          .map(q => ({ qid: q.qid, question: q.question, choice1: q.choice1, choice2: q.choice2, choice3: q.choice3, choice4: q.choice4 }));
+        return { ok: true, list };
+      }
+      return callServer("getQuizQuestions", {});
+    },
+
+    async startQuiz({ empId, name, org }) {
+      if (IS_MOCK) {
+        await delay(150);
+        const db = loadDB();
+        const match = db.roster.find(r => r.empId === empId && r.name === name);
+        if (!match) return { ok: false, message: "명단에서 사번/성명을 찾을 수 없습니다. 다시 확인해주세요." };
+        const idx = db.quizResponses.findIndex(r => r.empId === empId);
+        if (idx !== -1) {
+          if (db.quizResponses[idx].submitAt) return { ok: false, message: "이미 응시하셨습니다." };
+          db.quizResponses[idx].startAt = new Date().toISOString();
+        } else {
+          db.quizResponses.push({ empId, name, org: org || match.org, startAt: new Date().toISOString(), submitAt: "", answers: "", correctCount: "", totalCount: "", durationSec: "" });
+        }
+        saveDB(db);
+        return { ok: true };
+      }
+      return callServer("startQuiz", { empId, name, org });
+    },
+
+    // durationSec: 브라우저에서 직접 측정해 보내주는 소요시간(우선 사용). 없으면 서버(mock db) 기록 시각으로 대체 계산.
+    async submitQuiz({ empId, answers, durationSec }) {
+      if (IS_MOCK) {
+        await delay(200);
+        const db = loadDB();
+        const idx = db.quizResponses.findIndex(r => r.empId === empId);
+        if (idx === -1) return { ok: false, message: "먼저 '시작하기'를 눌러주세요." };
+        if (db.quizResponses[idx].submitAt) return { ok: false, message: "이미 제출하셨습니다." };
+        const now = new Date();
+        let finalDurationSec = Number(durationSec);
+        if (!Number.isFinite(finalDurationSec) || finalDurationSec < 0) {
+          const startAt = new Date(db.quizResponses[idx].startAt);
+          finalDurationSec = Math.max(0, Math.round((now - startAt) / 1000));
+        }
+        const questions = (window.MOCK_SEED.quiz || []).slice().sort((a, b) => a.order - b.order);
+        let correctCount = 0;
+        questions.forEach((q, i) => { if (String(answers[i]).trim() === String(q.answer).trim()) correctCount++; });
+        db.quizResponses[idx] = {
+          ...db.quizResponses[idx], submitAt: now.toISOString(), answers: answers.join(","),
+          correctCount, totalCount: questions.length, durationSec: finalDurationSec
+        };
+        saveDB(db);
+        return { ok: true, correctCount, totalCount: questions.length, durationSec: finalDurationSec };
+      }
+      return callServer("submitQuiz", { empId, answers, durationSec });
+    },
+
+    // 결과를 1) 만점자 중 가장 빠른 순 2) 소속별 평균점수(÷출석인원) 높은 순 두 가지로 정리 (Code.gs의 actionGetQuizLeaderboard_와 동일 로직)
+    async getQuizLeaderboard(pin) {
+      if (IS_MOCK) {
+        await delay(150);
+        if (String(pin || "") !== MOCK_ADMIN_PIN) return { ok: false, message: "암호가 올바르지 않습니다." };
+        const db = loadDB();
+        const rows = db.quizResponses.filter(r => r.submitAt);
+
+        const perfectScorers = rows
+          .filter(r => Number(r.totalCount) > 0 && Number(r.correctCount) === Number(r.totalCount))
+          .slice().sort((a, b) => Number(a.durationSec) - Number(b.durationSec));
+
+        const attendanceCountByOrg = {};
+        db.attendance.forEach(a => {
+          const org = a.org || "(미지정)";
+          attendanceCountByOrg[org] = (attendanceCountByOrg[org] || 0) + 1;
+        });
+        const scoreSumByOrg = {};
+        rows.forEach(r => {
+          const org = r.org || "(미지정)";
+          scoreSumByOrg[org] = (scoreSumByOrg[org] || 0) + Number(r.correctCount || 0);
+        });
+        const orgRanking = Object.keys(attendanceCountByOrg).map(org => {
+          const attCount = attendanceCountByOrg[org];
+          const totalScore = scoreSumByOrg[org] || 0;
+          const avgScore = attCount > 0 ? Math.round((totalScore / attCount) * 100) / 100 : 0;
+          return { org, totalScore, attendanceCount: attCount, avgScore };
+        }).sort((a, b) => b.avgScore - a.avgScore);
+
+        return { ok: true, perfectScorers, orgRanking };
+      }
+      return callServer("getQuizLeaderboard", { pin });
+    },
+
+    // ---------- 설문조사 (만족도 / 종합평가) ----------
+    async submitSurvey({ empId, name, org, role, item1, item2, item3, item4, item5, comment }) {
+      if (IS_MOCK) {
+        await delay(200);
+        const db = loadDB();
+        const match = db.roster.find(r => r.empId === empId && r.name === name);
+        if (!match) return { ok: false, message: "명단에서 사번/성명을 찾을 수 없습니다. 다시 확인해주세요." };
+        if (db.surveyResponses.find(r => r.empId === empId)) return { ok: false, message: "이미 설문에 참여하셨습니다. 소중한 의견 감사합니다." };
+        db.surveyResponses.push({
+          empId, name, org: org || match.org, role: role || match.role || "",
+          item1, item2, item3, item4, item5, comment: comment || "", submittedAt: new Date().toISOString()
+        });
+        saveDB(db);
+        return { ok: true };
+      }
+      return callServer("submitSurvey", { empId, name, org, role, item1, item2, item3, item4, item5, comment });
+    },
+
+    async getSurveyResults(pin) {
+      if (IS_MOCK) {
+        await delay(150);
+        if (String(pin || "") !== MOCK_ADMIN_PIN) return { ok: false, message: "암호가 올바르지 않습니다." };
+        const rows = loadDB().surveyResponses;
+        const items = ["item1", "item2", "item3", "item4", "item5"];
+        const averages = {};
+        items.forEach(key => {
+          const nums = rows.map(r => Number(r[key])).filter(n => !isNaN(n));
+          averages[key] = nums.length ? Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 10) / 10 : 0;
+        });
+        return { ok: true, count: rows.length, averages, list: rows };
+      }
+      return callServer("getSurveyResults", { pin });
     }
   };
 
