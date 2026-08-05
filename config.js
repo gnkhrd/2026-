@@ -53,5 +53,17 @@ window.CONFIG = {
   SURVEY_FORM_URL: "https://docs.google.com/forms/d/e/1FAIpQLSdp4R0lYmJ5sDORh9Qtc08Lv3J_XfTKC5tnR8fkJIAoFgtRtg/viewform",
 
   // 설문조사는 기타안내(info.html) 탭 안에 노출됩니다 — 이 날짜/시각 이후로 계속 열려있습니다(상시오픈, 종료시각 없음).
-  SURVEY_TAB_OPEN_AT: { date: "2026-09-03", time: "12:30" }
+  SURVEY_TAB_OPEN_AT: { date: "2026-09-03", time: "12:30" },
+
+  // ▼ 사이트 전체 접속 허용 기간 ─────────────────────────────────────────
+  // 아래 목록에 있는 기간에만 사이트 전체(모든 화면)가 열립니다. 그 외 시간에는
+  // 모든 페이지가 "아직 접속할 수 없습니다" 안내 화면으로 가려집니다.
+  // - 비워두면([]) 항상 열려있습니다.
+  // - 한 구간의 end를 null로 두면, 그 시작 시각부터는 종료 없이 계속 열려있습니다(상시오픈).
+  // - 담당자는 주소 끝에 "?preview=1"을 붙이면 이 제한과 무관하게 언제든 미리 볼 수 있습니다.
+  //   예) https://gnkhrd.github.io/2026-/index.html?preview=1
+  SITE_ACCESS_WINDOWS: [
+    { start: { date: "2026-08-06", time: "00:00" }, end: { date: "2026-08-06", time: "23:59" } }, // 내일: 일부 직원 테스트 공개
+    { start: { date: "2026-09-01", time: "00:00" }, end: null } // 실제 연수 시작일부터 상시오픈
+  ]
 };

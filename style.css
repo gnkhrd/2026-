@@ -333,6 +333,19 @@ body{
 
 .mock-flag{ position:fixed; top:8px; right:8px; font-size:10px; background: var(--warning); color:#fff; padding:3px 8px; border-radius:999px; font-weight:700; z-index:60; }
 
+.site-locked{
+  position:fixed; inset:0; z-index:999;
+  background: var(--bg);
+  display:flex; align-items:center; justify-content:center;
+  padding:24px;
+}
+.site-locked-box{
+  max-width:340px; text-align:center;
+}
+.site-locked-icon{ font-size:40px; margin-bottom:14px; }
+.site-locked-title{ font-size:18px; font-weight:800; color:var(--brown-dark); margin-bottom:10px; }
+.site-locked-desc{ font-size:14px; color:var(--text-dim); line-height:1.6; }
+
 /* 네트워킹 랭킹전 */
 .rank-num{ width:26px; flex-shrink:0; text-align:center; font-size:14px; font-weight:800; color:var(--text-faint); }
 .rank-item.rank-1 .rank-num{ color:#C9971C; font-size:18px; }
