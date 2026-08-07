@@ -21,11 +21,11 @@ function fmtDateTime(iso) {
 
 // 일정표의 "시간" 칸을 안전하게 표시용으로 가공합니다.
 // Schedule 시트에 "12:10-13:00"처럼 "-"로 적든 "18:00~18:10"처럼 "~"로 적든
-// 항상 시작~끝을 줄바꿈(두 줄)으로 통일해서, 좁은 칸에서 제목과 글자가 겹치는 걸 방지합니다.
+// 항상 시작 / ~ / 끝 세 줄로 통일해서, 좁은 칸에서 제목과 글자가 겹치는 걸 방지합니다.
 function fmtTimeRange(raw) {
   if (!raw) return "";
   const parts = String(raw).split(/[-~]/).map(s => s.trim()).filter(Boolean);
-  if (parts.length >= 2) return `${parts[0]}-<br>${parts[1]}`;
+  if (parts.length >= 2) return `${parts[0]}<br>~<br>${parts[1]}`;
   return String(raw).trim();
 }
 
@@ -85,3 +85,41 @@ function showMockFlagIfNeeded() {
   }
 }
 document.addEventListener("DOMContentLoaded", showMockFlagIfNeeded);
+
+/* ---------- 사이트 전체 접속 허용 기간 게이트 ----------
+   config.js의 SITE_ACCESS_WINDOWS에 지정된 기간이 아니면, 페이지 내용을 그리기 전에
+   전체 화면을 "아직 접속할 수 없습니다" 안내로 가립니다. (모든 html이 이 util.js를
+   자기 화면 스크립트보다 먼저 불러오므로, 이 파일 로드 시점에 즉시 가려집니다.)
+   담당자는 주소 끝에 "?preview=1"을 붙이면 언제든 이 제한 없이 볼 수 있습니다. */
+function isSiteAccessOpen() {
+  const windows = window.CONFIG && window.CONFIG.SITE_ACCESS_WINDOWS;
+  if (!windows || !windows.length) return true;
+  const kst = nowKST();
+  const nowKey = kst.date + " " + kst.hhmm;
+  return windows.some(w => {
+    const startKey = w.start.date + " " + w.start.time;
+    if (nowKey < startKey) return false;
+    if (!w.end) return true;
+    const endKey = w.end.date + " " + w.end.time;
+    return nowKey <= endKey;
+  });
+}
+
+(function enforceSiteAccessGate() {
+  try {
+    const bypass = new URLSearchParams(location.search).get("preview") === "1";
+    if (bypass || isSiteAccessOpen()) return;
+    const app = document.querySelector(".app");
+    if (app) app.style.display = "none";
+    const lock = document.createElement("div");
+    lock.className = "site-locked";
+    lock.innerHTML = `
+      <div class="site-locked-box">
+        <div class="site-locked-icon">🔒</div>
+        <div class="site-locked-title">아직 접속할 수 없습니다</div>
+        <div class="site-locked-desc">이 페이지는 2026년 정책연수 기간에 맞춰 열립니다.<br>연수 시작 전까지는 잠시 이용하실 수 없어요.</div>
+      </div>
+    `;
+    document.body.appendChild(lock);
+  } catch (e) { /* 게이트 계산 자체가 실패해도 사이트가 막히지 않도록 조용히 무시 */ }
+})();

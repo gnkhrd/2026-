@@ -41,19 +41,20 @@ window.MOCK_SEED = {
     { scannerId: "10004", scannedId: "10005", time: "2026-09-01T15:10:00.000Z" },
     { scannerId: "10005", scannedId: "10004", time: "2026-09-01T15:11:00.000Z" }
   ],
-  // tag: 홈 화면 "오늘의 일정"에 뽑아서 보여줄 항목 표시용 키워드 (선택 입력, config.js의 HOME_SCHEDULE_KEYWORD와 매칭)
+  // tag: 홈 화면 "오늘의 주요일정" 4칸에 뽑아서 보여줄 행에만 문구를 적습니다.
+  // 같은 date 안에서 tag가 채워진 행만 시간순 최대 4개까지 노출되며, 일자마다 다른 문구를 적어두면 됩니다.
   schedule: [
-    { date: "2026-09-01", time: "12:30", title: "등록 및 접수", speaker: "", tag: "오늘" },
-    { date: "2026-09-01", time: "13:00", title: "개회예배", speaker: "이일하 이사장", tag: "오늘" },
-    { date: "2026-09-01", time: "13:40", title: "직원소개", speaker: "", tag: "오늘" },
-    { date: "2026-09-01", time: "14:00", title: "비전공유", speaker: "사무총장", tag: "" },
-    { date: "2026-09-01", time: "14:50", title: "특별강연", speaker: "협의중", tag: "" },
-    { date: "2026-09-01", time: "16:20", title: "기조강연 — 콜렉티브 임팩트", speaker: "이봉주 교수", tag: "" },
-    { date: "2026-09-02", time: "09:30", title: "주제·사례발표 (GN 파이어사이드 챗)", speaker: "", tag: "" },
-    { date: "2026-09-02", time: "13:30", title: "공동체 프로그램 (G-BU-Ting)", speaker: "", tag: "" },
-    { date: "2026-09-03", time: "09:30", title: "공동체활동 결과공유", speaker: "", tag: "" },
-    { date: "2026-09-03", time: "10:40", title: "장기근속 시상", speaker: "", tag: "" },
-    { date: "2026-09-03", time: "11:40", title: "폐회예배", speaker: "", tag: "" }
+    { date: "2026-09-01", time: "12:30", title: "등록 및 접수", speaker: "", tag: "" },
+    { date: "2026-09-01", time: "13:00", title: "개회예배", speaker: "이일하 이사장", tag: "개회예배" },
+    { date: "2026-09-01", time: "13:40", title: "직원소개", speaker: "", tag: "" },
+    { date: "2026-09-01", time: "14:00", title: "비전공유", speaker: "사무총장", tag: "비전공유" },
+    { date: "2026-09-01", time: "14:50", title: "특별강연", speaker: "협의중", tag: "특별강연" },
+    { date: "2026-09-01", time: "16:20", title: "기조강연 — 콜렉티브 임팩트", speaker: "이봉주 교수", tag: "기조강연" },
+    { date: "2026-09-02", time: "09:30", title: "주제·사례발표 (GN 파이어사이드 챗)", speaker: "", tag: "주제발표" },
+    { date: "2026-09-02", time: "13:30", title: "공동체 프로그램 (G-BU-Ting)", speaker: "", tag: "공동체활동" },
+    { date: "2026-09-03", time: "09:30", title: "공동체활동 결과공유", speaker: "", tag: "결과공유" },
+    { date: "2026-09-03", time: "10:40", title: "장기근속 시상", speaker: "", tag: "장기근속시상" },
+    { date: "2026-09-03", time: "11:40", title: "폐회예배", speaker: "", tag: "폐회예배" }
   ],
   materials: [
     { title: "기조강연 - 콜렉티브 임팩트", speaker: "이봉주 교수", file: "" },
@@ -85,5 +86,12 @@ window.MOCK_SEED = {
     { date: "2026-09-02", meal: "저녁", target: "경기 대표직책", menu: "열무 보리비빔밥 반상", count: "10명", members: "김민애, 정근진, 김지연, 강은영, 김기영, 주진관, 문상록, 조은승, 손혜영, 정욱재" },
     { date: "2026-09-03", meal: "아침", target: "전북 대표직책", menu: "조식뷔페", count: "8명", members: "유기용, 김경환, 김완진, 김미선, 강민숙, 조현경, 최은희, 조자영" },
     { date: "2026-09-03", meal: "점심", target: "충청 대표직책", menu: "소갈비살 영양솥밥", count: "8명", members: "김길수, 김성찬, 백순규, 최은희, 강은정, 김정민, 채종병, 이일수" }
+  ],
+  // 라이브 퀴즈쇼 샘플 문항 (구조 테스트용 임시 문항입니다 — 실제 문항으로 Google Sheet의 Quiz 탭에서 교체하세요).
+  // answer는 1~4 중 정답 보기 번호. choice1~4가 실제 화면에 보이는 4지선다 보기입니다.
+  quiz: [
+    { qid: "Q1", order: 1, question: "(샘플) 이번 정책연수의 대주제는 무엇일까요?", choice1: "AI시대, 공동체로 아동행복을 연결하다", choice2: "굿네이버스, 아동행복의 방향을 제시하다", choice3: "함께 걷는 아동복지", choice4: "미래를 여는 굿네이버스", answer: 1 },
+    { qid: "Q2", order: 2, question: "(샘플) 이번 정책연수는 몇 박 며칠 일정일까요?", choice1: "1박 2일", choice2: "2박 3일", choice3: "3박 4일", choice4: "당일 일정", answer: 2 },
+    { qid: "Q3", order: 3, question: "(샘플) 정책연수 장소는 어디일까요?", choice1: "스플라스 리솜", choice2: "제주 신라호텔", choice3: "설악 켄싱턴", choice4: "경주 힐튼", answer: 1 }
   ]
 };
