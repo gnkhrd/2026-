@@ -197,15 +197,25 @@ document.getElementById("submit-btn").addEventListener("click", async () => {
   btn.disabled = true; btn.textContent = "확인 중...";
   const res = await API.checkIn({ empId, name, org });
   btn.disabled = false; btn.textContent = "출석 인증하기";
+  const qrUrl = `qr-card.html?empId=${encodeURIComponent(empId)}&name=${encodeURIComponent(name)}`;
   if (res.ok) {
     setMyEmpId(empId);
     setMyName(name);
-    const qrUrl = `qr-card.html?empId=${encodeURIComponent(empId)}&name=${encodeURIComponent(name)}`;
     resultEl.innerHTML = `
       <div class="notice success">출석 인증이 완료되었습니다. 반갑습니다!</div>
       <a class="btn btn-primary" href="${qrUrl}" style="margin-bottom:14px;">🪪 내 QR 명함 만들러 가기</a>
     `;
     refreshList();
+  } else if (String(res.message || "").includes("이미 출석 처리되었습니다")) {
+    // 이미 다른 기기(PC 등)에서 출석체크를 완료한 경우입니다. 사번/성명은 명단과 이미 대조되어
+    // 유효하다는 뜻이므로, 이 기기(브라우저)에도 신원을 저장해줘야 발표자료 등 출석 확인이
+    // 필요한 다른 화면들이 이 기기에서도 정상적으로 열립니다.
+    setMyEmpId(empId);
+    setMyName(name);
+    resultEl.innerHTML = `
+      <div class="notice info">이미 다른 기기(또는 브라우저)에서 출석체크를 완료하셨네요. 이 기기에도 확인 정보를 저장했어요.</div>
+      <a class="btn btn-primary" href="${qrUrl}" style="margin-bottom:14px;">🪪 내 QR 명함 만들러 가기</a>
+    `;
   } else {
     resultEl.innerHTML = `<div class="notice error">${res.message}</div>`;
   }
