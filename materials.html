@@ -12,52 +12,95 @@
     <a class="back" href="index.html">‹</a>
     <div>
       <h1>발표자료</h1>
-      <div class="sub">온라인 열람 전용 · 다운로드는 지원하지 않습니다</div>
+      <div class="sub">온라인 열람 전용(다운로드 불가)</div>
     </div>
   </div>
 
   <div class="notice info">
-    자료는 구글드라이브에 "뷰어 권한 + 다운로드/인쇄/복사 사용 안함"으로 설정 후 연결하는 방식입니다.
-    (파일별 공유 설정에서 지정 가능 — 우클릭 저장 등 완전 차단은 아니며, 일반적인 다운로드 경로를 막는 수준입니다.)
+    2026년 사회복지법인 굿네이버스 정책연수 발표자료 파일입니다.<br>
+    해당자료에 대한 다운로드, 캡쳐 등은 지양해주시고 외부 유출되지 않도록 주의해주시기 바랍니다.
   </div>
 
-  <div class="card" id="doc-list" style="padding:6px 14px;"></div>
+  <!-- 출석체크를 완료하지 않으면 이 화면이 대신 노출됩니다 -->
+  <div class="card" id="materials-gate" style="display:none; text-align:center; padding:32px 20px;">
+    <div style="font-size:34px; margin-bottom:10px;">🔒</div>
+    <div style="font-weight:800; font-size:15px; margin-bottom:8px;">출석체크 후 열람할 수 있습니다</div>
+    <div style="font-size:13px; color:var(--text-dim); line-height:1.6; margin-bottom:18px;">
+      발표자료는 출석체크를 완료하신 분만 확인할 수 있어요.<br>먼저 출석체크를 진행해주세요.
+    </div>
+    <a class="btn btn-primary" href="attendance.html">✅ 출석체크 하러 가기</a>
+  </div>
+
+  <div class="card" id="doc-list" style="padding:6px 14px; display:none;"></div>
 </div>
 
+<!-- pdf.js 커스텀 뷰어: 전체화면 / 회전 / 화면크기에 맞춘 자동배율 / 클릭으로 페이지 넘기기 지원 -->
 <div class="modal-overlay" id="viewer-modal" style="display:none;">
-  <div class="modal-sheet" style="height:88vh; display:flex; flex-direction:column; padding:14px;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-      <div id="viewer-title" style="font-weight:700; font-size:14px;"></div>
-      <button class="btn btn-secondary" style="width:auto; padding:8px 14px;" id="viewer-close">닫기</button>
+  <div class="modal-sheet pdf-viewer-sheet" id="pdf-viewer-sheet">
+    <div class="pdf-viewer-toolbar">
+      <div class="pdf-viewer-title" id="viewer-title"></div>
+      <div class="pdf-viewer-actions">
+        <button class="pdf-viewer-btn" id="viewer-rotate" title="화면 회전">⟳</button>
+        <button class="pdf-viewer-btn" id="viewer-fullscreen" title="전체화면">⛶</button>
+        <button class="pdf-viewer-btn" id="viewer-close" title="닫기">✕</button>
+      </div>
     </div>
-    <div style="flex:1; border-radius:12px; overflow:hidden; background:#000;">
-      <iframe id="viewer-frame" style="width:100%; height:100%; border:none;"></iframe>
+    <div class="pdf-viewer-stage" id="pdf-viewer-stage">
+      <div class="pdf-viewer-loading" id="pdf-viewer-loading">불러오는 중...</div>
+      <div class="pdf-viewer-error" id="pdf-viewer-error" style="display:none;"></div>
+      <canvas id="pdf-canvas" style="display:none;"></canvas>
+      <div class="pdf-viewer-navzone left" id="pdf-nav-prev" title="이전 페이지"></div>
+      <div class="pdf-viewer-navzone right" id="pdf-nav-next" title="다음 페이지"></div>
+    </div>
+    <div class="pdf-viewer-footer">
+      <button class="pdf-viewer-navbtn" id="pdf-prev-btn">‹ 이전</button>
+      <div class="pdf-viewer-page-indicator" id="pdf-page-indicator">1 / 1</div>
+      <button class="pdf-viewer-navbtn" id="pdf-next-btn">다음 ›</button>
     </div>
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="assets/config.js"></script>
 <script src="assets/mockdata.js"></script>
 <script src="assets/api.js"></script>
 <script src="assets/util.js"></script>
 <script>
-function driveEmbedUrl(fileIdOrUrl) {
-  if (!fileIdOrUrl) return "";
-  // 시트에 "보기(view)" 전체 링크를 넣든, 파일ID만 넣든 상관없이
-  // 항상 파일ID만 뽑아서 임베드 전용 주소(/preview)로 변환합니다.
-  // 드라이브의 일반 "보기" 링크는 다른 사이트의 iframe 안에서 열리는 걸
-  // 막아둔 경우가 있어(특히 PDF), 반드시 /preview 형태를 써야 합니다.
-  let id = String(fileIdOrUrl).trim();
-  const m = id.match(/\/d\/([^/]+)/);
-  if (m) id = m[1];
-  return `https://drive.google.com/file/d/${id}/preview`;
+if (window.pdfjsLib) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 }
 
-async function load() {
+let MATERIALS_LIST = [];
+
+/* ---------- 출석체크 게이트 ---------- */
+// 브라우저에 저장된 사번만으로는 "출석체크를 실제로 완료했다"는 증거가 안 됩니다
+// (퀴즈 등 다른 기능에서도 같은 값을 저장하기 때문). 그래서 서버의 실제 출석 명단과
+// 대조해서, 그 사번이 진짜 출석 목록에 있는지까지 확인합니다.
+async function isAttendedForMaterials() {
+  const empId = myEmpId(), name = myName();
+  if (!empId || !name) return false;
+  const res = await API.getAttendanceList();
+  if (!res.ok) return false;
+  return res.list.some(a => String(a.empId).trim() === String(empId).trim() && String(a.name).trim() === String(name).trim());
+}
+
+function showGate() {
+  document.getElementById("materials-gate").style.display = "";
+  document.getElementById("doc-list").style.display = "none";
+}
+
+function showList() {
+  document.getElementById("materials-gate").style.display = "none";
+  document.getElementById("doc-list").style.display = "";
+}
+
+/* ---------- 자료 목록 ---------- */
+async function loadList() {
   const res = await API.getMaterials();
+  MATERIALS_LIST = res.ok ? res.list : [];
   const wrap = document.getElementById("doc-list");
-  if (!res.ok || !res.list.length) { wrap.innerHTML = '<div class="empty">등록된 자료가 없습니다.</div>'; return; }
-  wrap.innerHTML = res.list.map((m, i) => `
+  if (!MATERIALS_LIST.length) { wrap.innerHTML = '<div class="empty">등록된 자료가 없습니다.</div>'; return; }
+  wrap.innerHTML = MATERIALS_LIST.map((m, i) => `
     <div class="doc-list-item" data-idx="${i}" style="cursor:pointer;">
       <div class="icon">📄</div>
       <div style="flex:1;">
@@ -68,22 +111,136 @@ async function load() {
     </div>
   `).join("");
   wrap.querySelectorAll(".doc-list-item").forEach(el => {
-    el.addEventListener("click", () => {
-      const m = res.list[+el.dataset.idx];
-      if (!m.file) { alert("아직 업로드되지 않은 자료입니다."); return; }
-      document.getElementById("viewer-title").textContent = m.title;
-      document.getElementById("viewer-frame").src = driveEmbedUrl(m.file);
-      document.getElementById("viewer-modal").style.display = "flex";
-    });
+    el.addEventListener("click", () => openViewer(MATERIALS_LIST[+el.dataset.idx]));
   });
 }
 
-document.getElementById("viewer-close").addEventListener("click", () => {
-  document.getElementById("viewer-frame").src = "";
-  document.getElementById("viewer-modal").style.display = "none";
+/* ---------- pdf.js 커스텀 뷰어 ---------- */
+let pdfDoc = null;
+let pdfCurrentPage = 1;
+let pdfRotation = 0;
+let pdfResizeTimer = null;
+
+function viewerEls() {
+  return {
+    stage: document.getElementById("pdf-viewer-stage"),
+    canvas: document.getElementById("pdf-canvas"),
+    loading: document.getElementById("pdf-viewer-loading"),
+    error: document.getElementById("pdf-viewer-error"),
+    pageIndicator: document.getElementById("pdf-page-indicator")
+  };
+}
+
+async function openViewer(m) {
+  if (!m.file) { alert("아직 업로드되지 않은 자료입니다."); return; }
+  document.getElementById("viewer-title").textContent = m.title;
+  document.getElementById("viewer-modal").style.display = "flex";
+
+  const { canvas, loading, error } = viewerEls();
+  canvas.style.display = "none";
+  error.style.display = "none";
+  loading.style.display = "";
+  loading.textContent = "불러오는 중...";
+  pdfDoc = null;
+  pdfCurrentPage = 1;
+  pdfRotation = 0;
+
+  // 열람 기록 — 뷰어 로딩과 별개로 조용히 남겨둡니다(실패해도 열람 자체를 막지 않음).
+  API.logMaterialView({ empId: myEmpId(), name: myName(), org: "", materialTitle: m.title }).catch(() => {});
+
+  const fileRes = await API.getMaterialFile({ file: m.file });
+  if (!fileRes.ok) {
+    loading.style.display = "none";
+    error.textContent = fileRes.message || "자료를 불러오지 못했습니다.";
+    error.style.display = "";
+    return;
+  }
+
+  try {
+    const binary = atob(fileRes.base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    pdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise;
+    loading.style.display = "none";
+    canvas.style.display = "";
+    await renderPdfPage(1);
+  } catch (e) {
+    loading.style.display = "none";
+    error.textContent = "자료를 표시하는 중 문제가 발생했습니다.";
+    error.style.display = "";
+  }
+}
+
+async function renderPdfPage(num) {
+  if (!pdfDoc) return;
+  num = Math.max(1, Math.min(num, pdfDoc.numPages));
+  pdfCurrentPage = num;
+  const page = await pdfDoc.getPage(num);
+  const { stage, canvas, pageIndicator } = viewerEls();
+
+  const baseViewport = page.getViewport({ scale: 1, rotation: pdfRotation });
+  const availW = Math.max(stage.clientWidth - 16, 100);
+  const availH = Math.max(stage.clientHeight - 16, 100);
+  const scale = Math.max(Math.min(availW / baseViewport.width, availH / baseViewport.height), 0.1);
+  const viewport = page.getViewport({ scale, rotation: pdfRotation });
+
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext("2d");
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  pageIndicator.textContent = `${num} / ${pdfDoc.numPages}`;
+}
+
+function pdfGoTo(delta) {
+  if (!pdfDoc) return;
+  renderPdfPage(pdfCurrentPage + delta);
+}
+
+document.getElementById("pdf-prev-btn").addEventListener("click", () => pdfGoTo(-1));
+document.getElementById("pdf-next-btn").addEventListener("click", () => pdfGoTo(1));
+document.getElementById("pdf-nav-prev").addEventListener("click", () => pdfGoTo(-1));
+document.getElementById("pdf-nav-next").addEventListener("click", () => pdfGoTo(1));
+
+document.getElementById("viewer-rotate").addEventListener("click", () => {
+  pdfRotation = (pdfRotation + 90) % 360;
+  renderPdfPage(pdfCurrentPage);
 });
 
-load();
+// 전체화면: 아이폰 사파리는 임의 요소의 전체화면 전환을 지원하지 않아 이 기기에서는
+// 버튼을 눌러도 동작하지 않을 수 있습니다(브라우저 자체 제약, 우리 쪽에서 우회할 방법이 없음).
+document.getElementById("viewer-fullscreen").addEventListener("click", () => {
+  const sheet = document.getElementById("pdf-viewer-sheet");
+  const isFs = document.fullscreenElement || document.webkitFullscreenElement;
+  if (isFs) {
+    (document.exitFullscreen || document.webkitExitFullscreen || function () {}).call(document);
+  } else {
+    const req = sheet.requestFullscreen || sheet.webkitRequestFullscreen;
+    if (req) req.call(sheet);
+    else alert("이 기기/브라우저에서는 전체화면 전환을 지원하지 않습니다.");
+  }
+});
+
+document.addEventListener("fullscreenchange", () => { if (pdfDoc) renderPdfPage(pdfCurrentPage); });
+document.addEventListener("webkitfullscreenchange", () => { if (pdfDoc) renderPdfPage(pdfCurrentPage); });
+
+window.addEventListener("resize", () => {
+  if (!pdfDoc) return;
+  clearTimeout(pdfResizeTimer);
+  pdfResizeTimer = setTimeout(() => renderPdfPage(pdfCurrentPage), 200);
+});
+
+document.getElementById("viewer-close").addEventListener("click", () => {
+  document.getElementById("viewer-modal").style.display = "none";
+  pdfDoc = null;
+});
+
+/* ---------- 시작 ---------- */
+(async function init() {
+  const attended = await isAttendedForMaterials();
+  if (!attended) { showGate(); return; }
+  showList();
+  loadList();
+})();
 </script>
 </body>
 </html>

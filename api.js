@@ -19,7 +19,8 @@
         scanlog: (window.MOCK_SEED.scanlog || []).slice(),
         schedule: window.MOCK_SEED.schedule.slice(),
         quizResponses: [],
-        surveyResponses: []
+        surveyResponses: [],
+        materialViews: []
       };
       saveDB(db);
     }
@@ -272,6 +273,29 @@
     async getBanners() {
       if (IS_MOCK) { await delay(100); return { ok: true, list: window.MOCK_SEED.banners }; }
       return callServer("getBanners", {});
+    },
+
+    // 발표자료 열람 기록 (누가 언제 어떤 자료를 열었는지) — 유출 발생 시 추적용
+    async logMaterialView({ empId, name, org, materialTitle }) {
+      if (IS_MOCK) {
+        await delay(80);
+        const db = loadDB();
+        db.materialViews = db.materialViews || [];
+        db.materialViews.push({ empId, name, org: org || "", materialTitle: materialTitle || "", viewedAt: new Date().toISOString() });
+        saveDB(db);
+        return { ok: true };
+      }
+      return callServer("logMaterialView", { empId, name, org, materialTitle });
+    },
+
+    // 발표자료 원본 파일을 pdf.js로 직접 그리기 위해 서버를 통해 받아옵니다.
+    // (구글드라이브 파일을 브라우저가 직접 가져오면 CORS로 막히는 경우가 많아, 항상 서버를 거칩니다.)
+    async getMaterialFile({ file }) {
+      if (IS_MOCK) {
+        await delay(150);
+        return { ok: false, message: "MOCK 모드에서는 실제 파일 미리보기를 지원하지 않습니다. 실제 배포 후 확인해주세요." };
+      }
+      return callServer("getMaterialFile", { file });
     },
 
     // ---------- 방배정표 ----------
