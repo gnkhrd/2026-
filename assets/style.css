@@ -371,6 +371,17 @@ body{
 
 .mock-flag{ position:fixed; top:8px; right:8px; font-size:10px; background: var(--warning); color:#fff; padding:3px 8px; border-radius:999px; font-weight:700; z-index:60; }
 
+/* ---------- 사용법 안내 페이지 ---------- */
+.guide-card{ padding:14px; }
+.guide-img{ width:100%; display:block; border-radius: var(--radius-sm); border:1px solid var(--border); margin-bottom:12px; }
+.guide-img-placeholder{
+  width:100%; aspect-ratio:9/16; max-height:320px;
+  display:flex; align-items:center; justify-content:center;
+  background: var(--bg-card-2); border:1px dashed var(--border); border-radius: var(--radius-sm);
+  color:var(--text-faint); font-size:13px; margin-bottom:12px;
+}
+.guide-text{ font-size:13.5px; color:var(--text-dim); line-height:1.6; }
+
 .site-locked{
   position:fixed; inset:0; z-index:999;
   background: var(--bg);
