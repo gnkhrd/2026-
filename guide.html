@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>사용법 안내 · 2026년 정책연수</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a class="back" href="index.html">‹</a>
+    <div>
+      <h1>사용법 안내</h1>
+      <div class="sub">스마트 라운지, 이렇게 사용해보세요</div>
+    </div>
+  </div>
+
+  <div class="card prose" style="padding:18px 16px;">
+    스마트 라운지는 2026년 정책연수 기간 동안 출석체크·일정 확인·네트워킹·퀴즈·설문 등을
+    한 곳에서 편하게 이용할 수 있도록 만든 모바일 웹페이지예요. 아래에서 기능별 사용법을 확인해보세요.
+  </div>
+
+  <div class="section-title"><span>🤝 GN 커넥트 챌린지</span></div>
+  <div class="card guide-card">
+    <img class="guide-img" src="assets/guide/qr-card.png" alt="GN 커넥트 챌린지 화면" onerror="handleGuideImgError(this)">
+    <div class="guide-text">내 QR 명함을 먼저 만들고, 서로의 QR을 스캔하면 포인트가 쌓여요. 랭킹은 화면 하단 "랭킹 보기"에서 확인할 수 있어요.</div>
+  </div>
+
+  <div class="section-title"><span>✅ 출석체크</span></div>
+  <div class="card guide-card">
+    <img class="guide-img" src="assets/guide/attendance.png" alt="출석체크 화면" onerror="handleGuideImgError(this)">
+    <div class="guide-text">사번은 본인 사번 그대로(대/소문자 구분) 입력하고, 성명에는 이름을 입력하면 출석 인증이 완료돼요.</div>
+  </div>
+
+  <div class="section-title"><span>🗓️ 일정표</span></div>
+  <div class="card guide-card">
+    <img class="guide-img" src="assets/guide/schedule.png" alt="일정표 화면" onerror="handleGuideImgError(this)">
+    <div class="guide-text">2박3일 전체 일정을 날짜별로 확인할 수 있어요. 변경사항이 있으면 실시간으로 반영돼요.</div>
+  </div>
+
+  <div class="section-title"><span>📑 발표자료</span></div>
+  <div class="card guide-card">
+    <img class="guide-img" src="assets/guide/materials.png" alt="발표자료 화면" onerror="handleGuideImgError(this)">
+    <div class="guide-text">출석체크를 완료하신 분만 열람할 수 있어요. 자료를 누르면 화면에서 바로 볼 수 있고, 다운로드·저장은 지원하지 않아요.</div>
+  </div>
+
+  <div class="section-title"><span>🌱 공동체 안내</span></div>
+  <div class="card guide-card">
+    <img class="guide-img" src="assets/guide/community.png" alt="공동체 안내 화면" onerror="handleGuideImgError(this)">
+    <div class="guide-text">공동체 활동의 미션과 진행방법을 확인할 수 있어요.</div>
+  </div>
+
+  <div class="section-title"><span>📌 기타 안내</span></div>
+  <div class="card guide-card">
+    <img class="guide-img" src="assets/guide/info.png" alt="기타 안내 화면" onerror="handleGuideImgError(this)">
+    <div class="guide-text">상단 탭을 눌러 자리배치표·방배정표·식사장소·총장님식사조·설문조사를 넘겨가며 확인할 수 있어요.</div>
+  </div>
+
+  <div class="section-title"><span>📝 라이브 퀴즈쇼</span></div>
+  <div class="card guide-card">
+    <img class="guide-img" src="assets/guide/quiz.png" alt="라이브 퀴즈쇼 화면" onerror="handleGuideImgError(this)">
+    <div class="guide-text">정해진 시간부터 사번과 성명을 입력하면 응시할 수 있어요. 4지선다 문제를 풀고 제출하면 정답률과 소요시간이 기록돼요.</div>
+  </div>
+
+  <div class="section-title"><span>🗳️ 설문조사</span></div>
+  <div class="card guide-card">
+    <img class="guide-img" src="assets/guide/survey.png" alt="설문조사 화면" onerror="handleGuideImgError(this)">
+    <div class="guide-text">정해진 시간부터 "기타 안내" 탭 안에서 구글폼으로 연결돼요. 만족도 및 종합평가 설문을 작성해주세요.</div>
+  </div>
+
+  <div class="notice info" style="margin-top:4px;">
+    더 궁금한 점이 있으면 홈 화면 하단의 "주무부서 문의"로 연락해주세요.
+  </div>
+</div>
+
+<script>
+function handleGuideImgError(img) {
+  const ph = document.createElement("div");
+  ph.className = "guide-img-placeholder";
+  ph.textContent = "📷 스크린샷 준비 중";
+  img.replaceWith(ph);
+}
+</script>
+</body>
+</html>
