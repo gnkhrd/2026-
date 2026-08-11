@@ -18,7 +18,6 @@
         profiles: window.MOCK_SEED.profiles.slice(),
         scanlog: (window.MOCK_SEED.scanlog || []).slice(),
         schedule: window.MOCK_SEED.schedule.slice(),
-        quizResponses: [],
         surveyResponses: [],
         materialViews: []
       };
@@ -314,97 +313,6 @@
     async getLeaderboard(empId) {
       if (IS_MOCK) { await delay(200); return computeLeaderboard_(loadDB(), empId); }
       return callServer("getLeaderboard", { empId: empId || "" });
-    },
-
-    // ---------- 라이브 퀴즈쇼 ----------
-    async getQuizQuestions() {
-      if (IS_MOCK) {
-        await delay(150);
-        const list = (window.MOCK_SEED.quiz || []).slice().sort((a, b) => a.order - b.order)
-          .map(q => ({ qid: q.qid, question: q.question, choice1: q.choice1, choice2: q.choice2, choice3: q.choice3, choice4: q.choice4 }));
-        return { ok: true, list };
-      }
-      return callServer("getQuizQuestions", {});
-    },
-
-    async startQuiz({ empId, name, org }) {
-      if (IS_MOCK) {
-        await delay(150);
-        const db = loadDB();
-        const match = db.roster.find(r => r.empId === empId && r.name === name);
-        if (!match) return { ok: false, message: "명단에서 사번/성명을 찾을 수 없습니다. 다시 확인해주세요." };
-        const idx = db.quizResponses.findIndex(r => r.empId === empId);
-        if (idx !== -1) {
-          if (db.quizResponses[idx].submitAt) return { ok: false, message: "이미 응시하셨습니다." };
-          db.quizResponses[idx].startAt = new Date().toISOString();
-        } else {
-          db.quizResponses.push({ empId, name, org: org || match.org, startAt: new Date().toISOString(), submitAt: "", answers: "", correctCount: "", totalCount: "", durationSec: "" });
-        }
-        saveDB(db);
-        return { ok: true };
-      }
-      return callServer("startQuiz", { empId, name, org });
-    },
-
-    // durationSec: 브라우저에서 직접 측정해 보내주는 소요시간(우선 사용). 없으면 서버(mock db) 기록 시각으로 대체 계산.
-    async submitQuiz({ empId, answers, durationSec }) {
-      if (IS_MOCK) {
-        await delay(200);
-        const db = loadDB();
-        const idx = db.quizResponses.findIndex(r => r.empId === empId);
-        if (idx === -1) return { ok: false, message: "먼저 '시작하기'를 눌러주세요." };
-        if (db.quizResponses[idx].submitAt) return { ok: false, message: "이미 제출하셨습니다." };
-        const now = new Date();
-        let finalDurationSec = Number(durationSec);
-        if (!Number.isFinite(finalDurationSec) || finalDurationSec < 0) {
-          const startAt = new Date(db.quizResponses[idx].startAt);
-          finalDurationSec = Math.max(0, Math.round((now - startAt) / 1000));
-        }
-        const questions = (window.MOCK_SEED.quiz || []).slice().sort((a, b) => a.order - b.order);
-        let correctCount = 0;
-        questions.forEach((q, i) => { if (String(answers[i]).trim() === String(q.answer).trim()) correctCount++; });
-        db.quizResponses[idx] = {
-          ...db.quizResponses[idx], submitAt: now.toISOString(), answers: answers.join(","),
-          correctCount, totalCount: questions.length, durationSec: finalDurationSec
-        };
-        saveDB(db);
-        return { ok: true, correctCount, totalCount: questions.length, durationSec: finalDurationSec };
-      }
-      return callServer("submitQuiz", { empId, answers, durationSec });
-    },
-
-    // 결과를 1) 만점자 중 가장 빠른 순 2) 소속별 평균점수(÷출석인원) 높은 순 두 가지로 정리 (Code.gs의 actionGetQuizLeaderboard_와 동일 로직)
-    async getQuizLeaderboard(pin) {
-      if (IS_MOCK) {
-        await delay(150);
-        if (String(pin || "") !== MOCK_ADMIN_PIN) return { ok: false, message: "암호가 올바르지 않습니다." };
-        const db = loadDB();
-        const rows = db.quizResponses.filter(r => r.submitAt);
-
-        const perfectScorers = rows
-          .filter(r => Number(r.totalCount) > 0 && Number(r.correctCount) === Number(r.totalCount))
-          .slice().sort((a, b) => Number(a.durationSec) - Number(b.durationSec));
-
-        const attendanceCountByOrg = {};
-        db.attendance.forEach(a => {
-          const org = a.org || "(미지정)";
-          attendanceCountByOrg[org] = (attendanceCountByOrg[org] || 0) + 1;
-        });
-        const scoreSumByOrg = {};
-        rows.forEach(r => {
-          const org = r.org || "(미지정)";
-          scoreSumByOrg[org] = (scoreSumByOrg[org] || 0) + Number(r.correctCount || 0);
-        });
-        const orgRanking = Object.keys(attendanceCountByOrg).map(org => {
-          const attCount = attendanceCountByOrg[org];
-          const totalScore = scoreSumByOrg[org] || 0;
-          const avgScore = attCount > 0 ? Math.round((totalScore / attCount) * 100) / 100 : 0;
-          return { org, totalScore, attendanceCount: attCount, avgScore };
-        }).sort((a, b) => b.avgScore - a.avgScore);
-
-        return { ok: true, perfectScorers, orgRanking };
-      }
-      return callServer("getQuizLeaderboard", { pin });
     },
 
     // ---------- 설문조사 (만족도 / 종합평가) ----------

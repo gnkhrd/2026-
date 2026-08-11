@@ -23,15 +23,21 @@ const SHEET_NAMES = {
                             //  같은 날짜(date) 안에서 tag가 채워진 행만, 시간순으로 최대 4개까지 홈 화면에 나열됨.
                             //  일자별로 다른 문구를 적으면 그날엔 그 4개가 자동으로 노출됨 (아이콘은 문구 보고 자동 매칭).
                             //  일정표(schedule.html) 페이지에는 tag와 상관없이 전체 일정이 날짜별로 그대로 나옴)
-  MATERIALS: "Materials",   // 컬럼: title, speaker, file  (file = 구글드라이브 파일ID 또는 전체 URL)
+  MATERIALS: "Materials",   // 컬럼: title, speaker, file  (file = 구글드라이브 파일ID 또는 전체 URL / PDF 또는 구글슬라이드 형식만 지원)
+  MATERIAL_VIEWS: "MaterialViews", // 컬럼: empId, name, org, materialTitle, viewedAt
+                            // (발표자료를 열람할 때마다 한 줄씩 쌓입니다 — 유출 등 문제 발생 시 열람자 추적용.
+                            //  중복 체크 없이 매번 새 행을 추가합니다.)
   BANNERS: "Banners",       // 컬럼: emoji, title, url
   ROOMS: "RoomAssignment",  // 컬럼: empId, name, org, room (room = 건물/방번호, 예: "B동 305호")
                             // (기타안내 화면의 "내 방 찾기" 검색과 전체 방배정표 목록에 사용됩니다.
                             //  대표직책/본부 등 일부 인원만 개별 방이 배정되는 경우, 나머지 인원은 이 시트에
                             //  없어도 되며 화면에는 "별도로 배정된 방이 없습니다" 안내가 자동으로 뜹니다.)
-  MEALGROUPS: "MealGroups"  // 컬럼: date, meal, target, menu, count, members
+  MEALGROUPS: "MealGroups", // 컬럼: date, meal, target, menu, count, members
                             // (기타안내 화면의 "식사조" 섹션 — 일자·끼니별로 묶어서 아코디언 형태로 보여줍니다.
                             //  meal은 "아침/점심/저녁"처럼 자유 텍스트, members는 쉼표로 구분된 이름 목록입니다.)
+  SURVEY_RESPONSES: "SurveyResponses" // 컬럼: empId, name, org, role, item1, item2, item3, item4, item5, comment, submittedAt
+                            // (연수 종료 후 만족도·종합평가 설문 응답. 문항 내용 자체는 survey.html에 고정 텍스트로 있고,
+                            //  이 시트에는 응답 값만 쌓입니다. 결과는 survey-admin.html에서 관리자 PIN 입력 후에만 볼 수 있습니다.)
 };
 
 function ss_() { return SpreadsheetApp.getActiveSpreadsheet(); }
@@ -300,6 +306,44 @@ function actionGetMaterials_() {
   return { ok: true, list: sheetToObjects_(SHEET_NAMES.MATERIALS) };
 }
 
+// 발표자료 열람 기록 — 잠금 없이 매번 새 행만 추가합니다(중복 체크가 필요 없는 단순 로그이므로
+// 락으로 요청을 직렬화할 필요가 없어, 다른 액션들에 걸리는 대기시간에 영향을 주지 않습니다).
+function actionLogMaterialView_(p) {
+  appendRow_(SHEET_NAMES.MATERIAL_VIEWS, {
+    empId: p.empId || "", name: p.name || "", org: p.org || "",
+    materialTitle: p.materialTitle || "", viewedAt: new Date().toISOString()
+  });
+  return { ok: true };
+}
+
+// 발표자료 원본을 pdf.js 뷰어(커스텀 화면)로 직접 그려주기 위해,
+// 브라우저가 구글드라이브에 직접 접속하지 않고 이 서버를 거쳐서 PDF 데이터를 받아갑니다.
+// (브라우저가 드라이브에 직접 fetch하면 CORS로 막히는 경우가 많고, 다운로드 주소가 그대로
+//  노출되는 것도 막을 수 있습니다.) PDF 파일 또는 구글 슬라이드(자동으로 PDF 변환)만 지원합니다.
+function actionGetMaterialFile_(p) {
+  const raw = String(p.file || "").trim();
+  if (!raw) return { ok: false, message: "등록된 파일이 없습니다." };
+  let id = raw;
+  const m = id.match(/\/d\/([^/]+)/);
+  if (m) id = m[1];
+  let file;
+  try {
+    file = DriveApp.getFileById(id);
+  } catch (e) {
+    return { ok: false, message: "파일을 찾을 수 없습니다. 파일 ID/공유 설정을 확인해주세요." };
+  }
+  const mime = file.getMimeType();
+  let blob;
+  if (mime === "application/pdf") {
+    blob = file.getBlob();
+  } else if (mime === "application/vnd.google-apps.presentation" || mime === "application/vnd.google-apps.document") {
+    blob = file.getAs("application/pdf");
+  } else {
+    return { ok: false, message: "지원하지 않는 파일 형식입니다. PDF 또는 구글 슬라이드로 등록해주세요." };
+  }
+  return { ok: true, base64: Utilities.base64Encode(blob.getBytes()), mimeType: "application/pdf" };
+}
+
 function actionGetBanners_() {
   return { ok: true, list: sheetToObjects_(SHEET_NAMES.BANNERS) };
 }
@@ -342,6 +386,7 @@ function actionGetLeaderboard_(p) {
   const scanlog = sheetToObjects_(SHEET_NAMES.SCANLOG);
   const roster = sheetToObjects_(SHEET_NAMES.ROSTER);
   const profiles = sheetToObjects_(SHEET_NAMES.PROFILES);
+  const attendance = sheetToObjects_(SHEET_NAMES.ATTENDANCE);
 
   const orgCache = {}, nameCache = {};
   function orgOf(empId) {
@@ -380,6 +425,14 @@ function actionGetLeaderboard_(p) {
 
   const top10 = individual.slice(0, 10);
 
+  // 소속별 평균 점수 = (그 소속 참여자들의 점수 합계) ÷ (그 소속의 출석체크 인원수).
+  // 참여자 수가 아니라 출석 인원수로 나누기 때문에, 소속 내 참여율이 낮으면 평균도 함께 낮아집니다.
+  const attendanceCountByOrg = {};
+  attendance.forEach(a => {
+    const org = a.org || "(미지정)";
+    attendanceCountByOrg[org] = (attendanceCountByOrg[org] || 0) + 1;
+  });
+
   const orgMap = {};
   individual.forEach(ind => {
     const org = ind.org || "(미지정)";
@@ -388,7 +441,13 @@ function actionGetLeaderboard_(p) {
     orgMap[org].memberCount += 1;
     orgMap[org].totalScans += ind.uniqueCount;
   });
-  const orgRanking = Object.values(orgMap).sort((a, b) => b.totalScore - a.totalScore);
+  // 스캔 기록이 아예 없는 소속도(참여자 0명) 평균 0점으로 함께 노출되도록, 출석 인원 목록 기준으로 순회합니다.
+  const orgRanking = Object.keys(attendanceCountByOrg).map(org => {
+    const bucket = orgMap[org] || { org, totalScore: 0, memberCount: 0, totalScans: 0 };
+    const attendanceCount = attendanceCountByOrg[org];
+    const avgScore = attendanceCount > 0 ? Math.round((bucket.totalScore / attendanceCount) * 10) / 10 : 0;
+    return { ...bucket, attendanceCount, avgScore };
+  }).sort((a, b) => b.avgScore - a.avgScore);
 
   let me = null;
   if (p && p.empId) {
@@ -408,6 +467,49 @@ function actionGetLeaderboard_(p) {
   return { ok: true, top10, orgRanking, me, stats, config: LEADERBOARD_CONFIG };
 }
 
+// ---------- 설문조사 결과 비공개 보호용 암호 ----------
+// 설문조사 결과는 전체 공개하지 않고, 이 암호를 아는 담당자만 조회할 수 있습니다.
+// 반드시 아래 기본값을 실제 사용할 암호로 바꾼 뒤 다시 배포(새 배포 또는 배포 관리에서 수정)하세요.
+const ADMIN_PIN = "0000";
+
+// ---------- 설문조사 (만족도 / 종합평가) ----------
+function actionSubmitSurvey_(p) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const roster = sheetToObjects_(SHEET_NAMES.ROSTER);
+    const match = roster.find(r => String(r.empId) === String(p.empId) && String(r.name).trim() === String(p.name).trim());
+    if (!match) return { ok: false, message: "명단에서 사번/성명을 찾을 수 없습니다. 다시 확인해주세요." };
+
+    const existing = sheetToObjects_(SHEET_NAMES.SURVEY_RESPONSES);
+    if (existing.find(r => String(r.empId) === String(p.empId))) {
+      return { ok: false, message: "이미 설문에 참여하셨습니다. 소중한 의견 감사합니다." };
+    }
+
+    appendRow_(SHEET_NAMES.SURVEY_RESPONSES, {
+      empId: p.empId, name: p.name, org: p.org || match.org, role: p.role || match.role || "",
+      item1: p.item1, item2: p.item2, item3: p.item3, item4: p.item4, item5: p.item5,
+      comment: p.comment || "", submittedAt: new Date().toISOString()
+    });
+    return { ok: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// 관리자 PIN을 맞게 입력한 경우에만 항목별 평균/응답 목록을 내려줍니다 (전체 공개 아님).
+function actionGetSurveyResults_(p) {
+  if (String(p.pin || "") !== String(ADMIN_PIN)) return { ok: false, message: "암호가 올바르지 않습니다." };
+  const rows = sheetToObjects_(SHEET_NAMES.SURVEY_RESPONSES);
+  const items = ["item1", "item2", "item3", "item4", "item5"];
+  const averages = {};
+  items.forEach(key => {
+    const nums = rows.map(r => Number(r[key])).filter(n => !isNaN(n));
+    averages[key] = nums.length ? Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 10) / 10 : 0;
+  });
+  return { ok: true, count: rows.length, averages, list: rows };
+}
+
 // ---------- 라우팅 ----------
 
 function route_(action, p) {
@@ -423,12 +525,22 @@ function route_(action, p) {
     case "getMyScans": return actionGetMyScans_(p);
     case "getSchedule": return actionGetSchedule_();
     case "getMaterials": return actionGetMaterials_();
+    case "logMaterialView": return actionLogMaterialView_(p);
+    case "getMaterialFile": return actionGetMaterialFile_(p);
     case "getBanners": return actionGetBanners_();
     case "getRoomAssignment": return actionGetRoomAssignment_();
     case "getMealGroups": return actionGetMealGroups_();
     case "getLeaderboard": return actionGetLeaderboard_(p);
+    case "submitSurvey": return actionSubmitSurvey_(p);
+    case "getSurveyResults": return actionGetSurveyResults_(p);
     default: return { ok: false, message: "알 수 없는 요청입니다: " + action };
   }
+}
+
+// 예상치 못한 서버 오류(락 대기시간 초과 등 접속 폭주 상황 포함)가 나면, 원본 에러 문구 대신
+// 사용자에게 보여줄 친절한 안내 문구로 바꿔서 돌려줍니다. (원본 에러는 debug 필드에 남겨둡니다)
+function friendlyErrorResponse_(err) {
+  return { ok: false, message: "지금 접속이 많이 몰려 있습니다. 잠시 후 다시 시도해주세요.", debug: String(err) };
 }
 
 function doGet(e) {
@@ -437,7 +549,7 @@ function doGet(e) {
     const result = route_(p.action, p);
     return json_(result);
   } catch (err) {
-    return json_({ ok: false, message: String(err) });
+    return json_(friendlyErrorResponse_(err));
   }
 }
 
@@ -447,6 +559,6 @@ function doPost(e) {
     const result = route_(p.action, p);
     return json_(result);
   } catch (err) {
-    return json_({ ok: false, message: String(err) });
+    return json_(friendlyErrorResponse_(err));
   }
 }

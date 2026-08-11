@@ -140,18 +140,6 @@ body{
   font-size:22px;
   flex-shrink:0;
 }
-.quiz-live-badge{
-  position:absolute; top:-2px; right:-2px;
-  width:11px; height:11px;
-  background: var(--danger);
-  border-radius:50%;
-  box-shadow: 0 0 0 2px #fff;
-  animation: quiz-live-pulse 1.6s ease-in-out infinite;
-}
-@keyframes quiz-live-pulse{
-  0%, 100% { opacity:1; }
-  50% { opacity:.45; }
-}
 .menu-card .body{ flex:1; min-width:0; }
 .menu-card .label{ font-size:11px; color: var(--accent); font-weight:800; margin-bottom:2px; }
 .menu-card .title{ font-size:16px; font-weight:700; margin-bottom:2px; }
@@ -380,7 +368,10 @@ body{
   background: var(--bg-card-2); border:1px dashed var(--border); border-radius: var(--radius-sm);
   color:var(--text-faint); font-size:13px; margin-bottom:12px;
 }
-.guide-text{ font-size:13.5px; color:var(--text-dim); line-height:1.6; }
+.guide-list{ list-style:none; margin:0; padding:0; }
+.guide-list li{ position:relative; padding-left:16px; margin-bottom:8px; font-size:13.5px; line-height:1.6; color:var(--text-dim); }
+.guide-list li:last-child{ margin-bottom:0; }
+.guide-list li::before{ content:"•"; position:absolute; left:0; color:var(--accent); font-weight:800; }
 
 .site-locked{
   position:fixed; inset:0; z-index:999;
@@ -581,21 +572,6 @@ a{ color:inherit; }
   /* 출석체크: 도넛 + 게이지/직급바 2단 배치 */
   .att-visual-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:20px; }
 }
-
-/* ---------- 라이브 퀴즈쇼 ---------- */
-.quiz-q{ padding:14px 0; border-bottom:1px solid var(--border); }
-.quiz-q:last-child{ border-bottom:none; }
-.quiz-q-title{ font-size:14.5px; font-weight:700; margin-bottom:10px; word-break:keep-all; }
-.quiz-choices{ display:flex; flex-direction:column; gap:8px; }
-.quiz-choice{
-  display:flex; align-items:center; gap:8px;
-  background: var(--bg-card-2); border:1px solid var(--border); border-radius: var(--radius-sm);
-  padding:10px 12px; font-size:13.5px; cursor:pointer;
-}
-.quiz-choice input{ accent-color: var(--accent); width:16px; height:16px; flex-shrink:0; }
-.quiz-choice:has(input:checked){ border-color: var(--accent); background: rgba(137,162,48,.10); }
-.quiz-result-score{ font-size:22px; font-weight:800; color: var(--accent-dark); margin-top:8px; }
-.quiz-result-time{ font-size:14px; color: var(--text-dim); margin-top:4px; }
 
 /* ---------- 설문조사 ---------- */
 .survey-q{ padding:14px 0; border-bottom:1px solid var(--border); }
