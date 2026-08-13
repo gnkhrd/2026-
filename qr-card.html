@@ -223,7 +223,16 @@ async function handleScannedId(scannedId) {
   const res = await API.logScan({ scannerId: myEmpId(), scannedId });
   if (res.ok) {
     document.getElementById("profile-modal").style.display = "flex";
-    renderProfile(document.getElementById("modal-profile"), res.profile);
+    const container = document.getElementById("modal-profile");
+    renderProfile(container, res.profile);
+    // 이 스캔이 "내 생애 첫 스캔"이었던 경우에만, 몇 번째로 네트워크 활동을 시작했는지 축하 배너로 보여줍니다.
+    if (res.firstScanRank) {
+      container.insertAdjacentHTML("afterbegin", `
+        <div class="notice success" style="width:100%; margin-bottom:12px; text-align:center; font-weight:700;">
+          🎉 ${res.firstScanRank}번째로 네트워크 활동을 시작하셨어요!
+        </div>
+      `);
+    }
     refreshScans();
   } else {
     alert(res.message || "스캔 처리에 실패했습니다.");

@@ -122,24 +122,130 @@
     return { ok: true, top10, orgRanking, me, stats, config: LEADERBOARD_CONFIG };
   }
 
+  // 관리자 통계(교류 다양성 등) — MOCK 모드용. backend/Code.gs의 buildNetworkAnalytics_와 동일 로직입니다.
+  function computeNetworkStats_(db, pin) {
+    if (String(pin || "") !== String(MOCK_ADMIN_PIN)) return { ok: false, message: "암호가 올바르지 않습니다." };
+    const orgCache = {}, nameCache = {}, roleCache = {};
+    function orgOf(empId) {
+      const key = String(empId);
+      if (key in orgCache) return orgCache[key];
+      const pr = db.profiles.find(r => String(r.empId) === key);
+      const ro = db.roster.find(r => String(r.empId) === key);
+      return (orgCache[key] = (pr && pr.org) || (ro && ro.org) || "");
+    }
+    function nameOf(empId) {
+      const key = String(empId);
+      if (key in nameCache) return nameCache[key];
+      const pr = db.profiles.find(r => String(r.empId) === key);
+      const ro = db.roster.find(r => String(r.empId) === key);
+      return (nameCache[key] = (pr && pr.name) || (ro && ro.name) || key);
+    }
+    function roleOf(empId) {
+      const key = String(empId);
+      if (key in roleCache) return roleCache[key];
+      const pr = db.profiles.find(r => String(r.empId) === key);
+      const ro = db.roster.find(r => String(r.empId) === key);
+      return (roleCache[key] = (pr && pr.role) || (ro && ro.role) || "");
+    }
+    const byScanner = {};
+    db.scanlog.forEach(row => {
+      const scannerId = String(row.scannerId);
+      (byScanner[scannerId] = byScanner[scannerId] || []).push(String(row.scannedId));
+    });
+    const individual = Object.keys(byScanner).map(empId => {
+      const scannedIds = byScanner[empId];
+      const myOrg = orgOf(empId);
+      const crossOrgCount = scannedIds.filter(sid => orgOf(sid) && orgOf(sid) !== myOrg).length;
+      const uniqueCount = scannedIds.length;
+      const orgDiversity = new Set(scannedIds.map(orgOf).filter(o => o && o !== myOrg)).size;
+      const roleDiversity = new Set(scannedIds.map(roleOf).filter(Boolean)).size;
+      return {
+        empId, name: nameOf(empId), org: myOrg,
+        uniqueCount, crossOrgCount,
+        score: computeLeaderboardScore_(uniqueCount, crossOrgCount),
+        orgDiversity, roleDiversity
+      };
+    });
+    const attendanceCountByOrg = {};
+    db.attendance.forEach(a => {
+      const org = a.org || "(미지정)";
+      attendanceCountByOrg[org] = (attendanceCountByOrg[org] || 0) + 1;
+    });
+    const orgMap = {};
+    individual.forEach(ind => {
+      const org = ind.org || "(미지정)";
+      if (!orgMap[org]) orgMap[org] = { org, totalScore: 0, memberCount: 0, totalScans: 0, reachSet: new Set() };
+      orgMap[org].totalScore += ind.score;
+      orgMap[org].memberCount += 1;
+      orgMap[org].totalScans += ind.uniqueCount;
+      (byScanner[ind.empId] || []).forEach(sid => {
+        const sOrg = orgOf(sid);
+        if (sOrg && sOrg !== org) orgMap[org].reachSet.add(sOrg);
+      });
+    });
+    const orgRanking = Object.keys(attendanceCountByOrg).map(org => {
+      const bucket = orgMap[org] || { org, totalScore: 0, memberCount: 0, totalScans: 0, reachSet: new Set() };
+      const attendanceCount = attendanceCountByOrg[org];
+      const avgScore = attendanceCount > 0 ? Math.round((bucket.totalScore / attendanceCount) * 10) / 10 : 0;
+      return {
+        org, totalScore: bucket.totalScore, memberCount: bucket.memberCount, totalScans: bucket.totalScans,
+        attendanceCount, avgScore, orgReachCount: bucket.reachSet.size
+      };
+    }).sort((a, b) => b.avgScore - a.avgScore);
+    const individualByScore = individual.slice().sort((a, b) => b.score - a.score);
+    const individualByDiversity = individual.slice()
+      .sort((a, b) => (b.orgDiversity - a.orgDiversity) || (b.roleDiversity - a.roleDiversity) || (b.uniqueCount - a.uniqueCount));
+    const orgByReach = orgRanking.slice().sort((a, b) => b.orgReachCount - a.orgReachCount);
+    return {
+      ok: true,
+      individualTop10: individualByScore.slice(0, 10),
+      orgTop10: orgRanking.slice(0, 10),
+      individualDiversityTop10: individualByDiversity.slice(0, 10),
+      orgDiversityTop10: orgByReach.slice(0, 10)
+    };
+  }
+
   // 라이브 퀴즈쇼/설문조사 결과 비공개 보호용 암호 (MOCK 모드 테스트용 — backend/Code.gs의 ADMIN_PIN 기본값과 동일)
   const MOCK_ADMIN_PIN = "0000";
 
   // 실서버 호출 — GAS는 커스텀 헤더/JSON Content-Type을 쓰면 CORS 프리플라이트에 걸리므로
   // text/plain 으로 보내고 서버(Code.gs)에서 JSON.parse 하는 방식을 사용합니다.
-  async function callServer(action, payload) {
+  //
+  // 650명이 몰리는 상황에서는 네트워크 혼잡이나 Apps Script의 동시실행 한도로 인해
+  // 요청이 일시적으로 실패하거나 응답이 늦어질 수 있습니다. 이를 대비해 실패 시
+  // 짧은 대기 후 자동으로 몇 차례 재시도하고, 그래도 실패하면 사용자에게 다시 시도해달라는
+  // 안내를 보여주는 것으로 부드럽게 처리합니다(화면이 그냥 멈춘 것처럼 보이지 않도록).
+  //
+  // 재시도는 안전합니다 — 출석체크/스캔/설문 등 서버의 쓰기 액션들은 모두 "이미 처리됨"을
+  // 먼저 확인하는 구조라, 같은 요청이 두 번 도착해도 중복 반영되지 않습니다.
+  async function fetchOnce_(action, payload) {
     const url = window.CONFIG.APPS_SCRIPT_URL;
     if (action.startsWith("get")) {
       const qs = new URLSearchParams({ action, ...payload }).toString();
       const res = await fetch(`${url}?${qs}`, { method: "GET" });
-      return res.json();
+      return await res.json();
     }
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({ action, ...payload })
     });
-    return res.json();
+    return await res.json();
+  }
+
+  async function callServer(action, payload, retries) {
+    const maxRetries = retries == null ? 2 : retries; // 최초 1회 + 최대 2회 재시도 = 총 3회 시도
+    let lastErr;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await fetchOnce_(action, payload);
+      } catch (err) {
+        lastErr = err;
+        if (attempt < maxRetries) await delay(400 * Math.pow(2, attempt)); // 400ms, 800ms
+      }
+    }
+    console.error("callServer failed after retries:", action, lastErr);
+    return { ok: false, message: "네트워크가 원활하지 않습니다. 잠시 후 다시 시도해주세요." };
   }
 
   const API = {
@@ -221,10 +327,21 @@
         if (scannerId === scannedId) return { ok: false, message: "본인 QR입니다." };
         const db = loadDB();
         const already = db.scanlog.find(s => s.scannerId === scannerId && s.scannedId === scannedId);
-        if (!already) db.scanlog.unshift({ scannerId, scannedId, time: new Date().toISOString() });
+        let firstScanRank = null;
+        if (!already) {
+          const isFirstScanForThisPerson = !db.scanlog.some(s => s.scannerId === scannerId);
+          db.scanlog.unshift({ scannerId, scannedId, time: new Date().toISOString() });
+          if (isFirstScanForThisPerson) {
+            firstScanRank = new Set(db.scanlog.map(s => s.scannerId)).size;
+          }
+        }
         saveDB(db);
         const profile = db.profiles.find(p => p.empId === scannedId);
-        return { ok: true, profile: profile ? toDisplayProfile_(profile) : { empId: scannedId, name: "(미등록 프로필)", org: "", role: "", keywords: [], intro: "" } };
+        return {
+          ok: true,
+          profile: profile ? toDisplayProfile_(profile) : { empId: scannedId, name: "(미등록 프로필)", org: "", role: "", keywords: [], intro: "" },
+          firstScanRank
+        };
       }
       return callServer("logScan", { scannerId, scannedId });
     },
@@ -268,6 +385,21 @@
     async getMaterials() {
       if (IS_MOCK) { await delay(100); return { ok: true, list: window.MOCK_SEED.materials }; }
       return callServer("getMaterials", {});
+    },
+
+    // 발표자료 페이지 전용 — 출석 여부 확인 + 자료 목록을 한 번의 요청으로 함께 받습니다.
+    // (기존에는 getAttendanceList로 전체 명단을 받아 직접 대조 후, getMaterials를 또 호출하는
+    // 2회 왕복 방식이었는데, 이를 합쳐서 로딩 속도를 개선합니다.)
+    async getMaterialsGate({ empId, name }) {
+      if (IS_MOCK) {
+        await delay(150);
+        const db = loadDB();
+        const eid = String(empId || "").trim(), nm = String(name || "").trim();
+        const attended = !!eid && !!nm && db.attendance.some(a => String(a.empId).trim() === eid && String(a.name).trim() === nm);
+        if (!attended) return { ok: true, attended: false, list: [] };
+        return { ok: true, attended: true, list: window.MOCK_SEED.materials };
+      }
+      return callServer("getMaterialsGate", { empId: empId || "", name: name || "" });
     },
     async getBanners() {
       if (IS_MOCK) { await delay(100); return { ok: true, list: window.MOCK_SEED.banners }; }
@@ -313,6 +445,12 @@
     async getLeaderboard(empId) {
       if (IS_MOCK) { await delay(200); return computeLeaderboard_(loadDB(), empId); }
       return callServer("getLeaderboard", { empId: empId || "" });
+    },
+
+    // 관리자 전용 — 개인/소속 랭킹 TOP10 + 교류 다양성(소속수·직급수 기준) TOP10. PIN 필요.
+    async getNetworkStats(pin) {
+      if (IS_MOCK) { await delay(200); return computeNetworkStats_(loadDB(), pin); }
+      return callServer("getNetworkStats", { pin: pin || "" });
     },
 
     // ---------- 설문조사 (만족도 / 종합평가) ----------

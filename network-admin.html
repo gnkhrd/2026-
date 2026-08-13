@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>커넥트 챌린지 통계 (관리자) · 2026년 정책연수</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a class="back" href="index.html">‹</a>
+    <div>
+      <h1>커넥트 챌린지 통계</h1>
+      <div class="sub">담당자 전용 — 전체 공개되지 않습니다</div>
+    </div>
+  </div>
+
+  <div id="pin-box" class="card">
+    <div class="field">
+      <label>관리자 암호(PIN)</label>
+      <input type="password" id="pin-input" placeholder="암호를 입력하세요" inputmode="numeric">
+    </div>
+    <div id="pin-result"></div>
+    <button class="btn btn-primary" id="pin-btn">통계 보기</button>
+  </div>
+
+  <div id="result-wrap" style="display:none;">
+    <div class="section-title">
+      <span>개인 랭킹 TOP10</span>
+      <span class="count" id="ind-count">0명</span>
+    </div>
+    <div class="card" id="ind-list" style="padding:6px 14px;"></div>
+
+    <div class="section-title">
+      <span>소속별 랭킹 TOP10</span>
+      <span class="count" id="org-count">0곳</span>
+    </div>
+    <div class="card" id="org-list" style="padding:6px 14px;"></div>
+
+    <div class="section-title">
+      <span>교류 다양성 개인 TOP10</span>
+      <span class="count" id="ind-div-count">0명</span>
+    </div>
+    <div class="notice info" style="margin-bottom:10px;">가장 다양한 소속·직급의 사람과 교류한 순서예요. (소속 수 → 직급 수 → 스캔 인원 순으로 비교)</div>
+    <div class="card" id="ind-div-list" style="padding:6px 14px;"></div>
+
+    <div class="section-title">
+      <span>교류 다양성 소속 TOP10</span>
+      <span class="count" id="org-div-count">0곳</span>
+    </div>
+    <div class="notice info" style="margin-bottom:10px;">그 소속 구성원들이 함께 교류한 "다른 소속" 종류가 많은 순서예요.</div>
+    <div class="card" id="org-div-list" style="padding:6px 14px;"></div>
+
+    <div class="btn-row" style="margin-top:6px;">
+      <button class="btn btn-secondary" id="btn-refresh">🔄 새로고침</button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/config.js"></script>
+<script src="assets/mockdata.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/util.js"></script>
+<script>
+let currentPin = "";
+
+function ordinalBadge(rank) {
+  if (rank === 1) return "🥇";
+  if (rank === 2) return "🥈";
+  if (rank === 3) return "🥉";
+  return rank;
+}
+
+function renderIndividual(list) {
+  const wrap = document.getElementById("ind-list");
+  document.getElementById("ind-count").textContent = list.length + "명";
+  if (!list.length) { wrap.innerHTML = '<div class="empty">아직 스캔 기록이 없습니다.</div>'; return; }
+  wrap.innerHTML = list.map((r, i) => `
+    <div class="list-item rank-item rank-${i + 1}">
+      <div class="rank-num">${ordinalBadge(i + 1)}</div>
+      <div class="avatar">${initials(r.name)}</div>
+      <div>
+        <div class="name">${r.name}</div>
+        <div class="meta">${r.org || ""} · 스캔 ${r.uniqueCount}명 · 타소속교류 ${r.crossOrgCount}명</div>
+      </div>
+      <div class="score">${r.score}<span class="unit">점</span></div>
+    </div>
+  `).join("");
+}
+
+function renderOrg(list) {
+  const wrap = document.getElementById("org-list");
+  document.getElementById("org-count").textContent = list.length + "곳";
+  if (!list.length) { wrap.innerHTML = '<div class="empty">아직 스캔 기록이 없습니다.</div>'; return; }
+  wrap.innerHTML = list.map((o, i) => `
+    <div class="org-rank-item">
+      <div class="rank-num">${ordinalBadge(i + 1)}</div>
+      <div>
+        <div class="org-name">${o.org}</div>
+        <div class="org-meta">참여 ${o.memberCount}명 / 출석 ${o.attendanceCount}명 · 누적 스캔 ${o.totalScans}건 · 총점 ${o.totalScore}점</div>
+      </div>
+      <div class="score">${o.avgScore}<span class="unit">평균</span></div>
+    </div>
+  `).join("");
+}
+
+function renderIndividualDiversity(list) {
+  const wrap = document.getElementById("ind-div-list");
+  document.getElementById("ind-div-count").textContent = list.length + "명";
+  if (!list.length) { wrap.innerHTML = '<div class="empty">아직 스캔 기록이 없습니다.</div>'; return; }
+  wrap.innerHTML = list.map((r, i) => `
+    <div class="list-item rank-item rank-${i + 1}">
+      <div class="rank-num">${ordinalBadge(i + 1)}</div>
+      <div class="avatar">${initials(r.name)}</div>
+      <div>
+        <div class="name">${r.name}</div>
+        <div class="meta">${r.org || ""} · 스캔 ${r.uniqueCount}명</div>
+      </div>
+      <div class="score">${r.orgDiversity}<span class="unit">소속</span></div>
+    </div>
+  `).join("");
+}
+
+function renderOrgDiversity(list) {
+  const wrap = document.getElementById("org-div-list");
+  document.getElementById("org-div-count").textContent = list.length + "곳";
+  if (!list.length) { wrap.innerHTML = '<div class="empty">아직 스캔 기록이 없습니다.</div>'; return; }
+  wrap.innerHTML = list.map((o, i) => `
+    <div class="org-rank-item">
+      <div class="rank-num">${ordinalBadge(i + 1)}</div>
+      <div>
+        <div class="org-name">${o.org}</div>
+        <div class="org-meta">참여 ${o.memberCount}명 · 누적 스캔 ${o.totalScans}건</div>
+      </div>
+      <div class="score">${o.orgReachCount}<span class="unit">소속</span></div>
+    </div>
+  `).join("");
+}
+
+async function loadStats() {
+  const res = await API.getNetworkStats(currentPin);
+  if (!res.ok) return;
+  renderIndividual(res.individualTop10);
+  renderOrg(res.orgTop10);
+  renderIndividualDiversity(res.individualDiversityTop10);
+  renderOrgDiversity(res.orgDiversityTop10);
+}
+
+document.getElementById("pin-btn").addEventListener("click", async () => {
+  const pin = document.getElementById("pin-input").value.trim();
+  const resultEl = document.getElementById("pin-result");
+  if (!pin) { resultEl.innerHTML = '<div class="notice error">암호를 입력해주세요.</div>'; return; }
+  const btn = document.getElementById("pin-btn");
+  btn.disabled = true; btn.textContent = "확인 중...";
+  const res = await API.getNetworkStats(pin);
+  btn.disabled = false; btn.textContent = "통계 보기";
+  if (!res.ok) {
+    resultEl.innerHTML = `<div class="notice error">${res.message}</div>`;
+    return;
+  }
+  currentPin = pin;
+  document.getElementById("pin-box").style.display = "none";
+  document.getElementById("result-wrap").style.display = "";
+  renderIndividual(res.individualTop10);
+  renderOrg(res.orgTop10);
+  renderIndividualDiversity(res.individualDiversityTop10);
+  renderOrgDiversity(res.orgDiversityTop10);
+});
+
+document.getElementById("btn-refresh").addEventListener("click", loadStats);
+</script>
+</body>
+</html>

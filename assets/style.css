@@ -340,8 +340,12 @@ body{
 .pdf-viewer-stage{
   flex:1; position:relative; background:#111; display:flex;
   align-items:center; justify-content:center; overflow:hidden;
+  touch-action:none; /* 핀치/드래그 확대·이동을 우리 JS가 직접 처리 */
 }
-.pdf-viewer-stage canvas{ max-width:100%; max-height:100%; }
+.pdf-viewer-stage canvas{
+  max-width:100%; max-height:100%;
+  transform-origin: center center;
+}
 .pdf-viewer-loading{ color:#fff; font-size:13px; }
 .pdf-viewer-error{ color:#fff; font-size:13px; padding:0 24px; text-align:center; line-height:1.6; }
 .pdf-viewer-navzone{ position:absolute; top:0; bottom:0; width:35%; cursor:pointer; }
