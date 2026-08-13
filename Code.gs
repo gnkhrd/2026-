@@ -35,10 +35,21 @@ const SHEET_NAMES = {
   MEALGROUPS: "MealGroups", // 컬럼: date, meal, target, menu, count, members
                             // (기타안내 화면의 "식사조" 섹션 — 일자·끼니별로 묶어서 아코디언 형태로 보여줍니다.
                             //  meal은 "아침/점심/저녁"처럼 자유 텍스트, members는 쉼표로 구분된 이름 목록입니다.)
-  SURVEY_RESPONSES: "SurveyResponses" // 컬럼: empId, name, org, role, item1, item2, item3, item4, item5, comment, submittedAt
+  SURVEY_RESPONSES: "SurveyResponses", // 컬럼: empId, name, org, role, item1, item2, item3, item4, item5, comment, submittedAt
                             // (연수 종료 후 만족도·종합평가 설문 응답. 문항 내용 자체는 survey.html에 고정 텍스트로 있고,
                             //  이 시트에는 응답 값만 쌓입니다. 결과는 survey-admin.html에서 관리자 PIN 입력 후에만 볼 수 있습니다.)
+  LEADERBOARD_VIEW: "LeaderboardView", // 이 시트는 직접 만들 필요 없이 자동으로 생성/갱신됩니다 — 사람이 손으로 수정하지 마세요.
+                            // (updateLeaderboardSheet_ 가 몇 분 간격으로 개인/소속 랭킹을 자동으로 써주는 "보여주기용" 시트입니다.
+                            //  이 시트를 "뷰어" 권한으로 공유해두면, 공유받은 사람이 실시간으로 랭킹을 볼 수 있습니다.)
+  EVENT_WINNERS: "EventWinners" // 이 시트도 직접 만들 필요 없이 자동으로 생성됩니다.
+                            // (NETWORK_EVENT_TARGETS에 지정한 순번의 당첨자가 나올 때마다 한 줄씩 자동 기록됩니다:
+                            //  rank, empId, name, org, time)
 };
+
+// "N번째로 네트워크 활동을 시작한 사람"을 이벤트 당첨자로 선정할 순번들입니다.
+// 지금은 테스트 목적으로 10번째만 지정해두었습니다. 실제 운영 시 이 배열만 바꾸면 됩니다.
+// (예: [50] → 50번째 1명만 당첨 / [50, 100] → 50번째·100번째 각각 당첨)
+const NETWORK_EVENT_TARGETS = [10];
 
 function ss_() { return SpreadsheetApp.getActiveSpreadsheet(); }
 
@@ -72,6 +83,18 @@ function appendRow_(sheetName, obj, headerOrder) {
   sh.appendRow(row);
 }
 
+// EventWinners처럼 "미리 직접 만들어두지 않아도 되는" 시트를 위한 헬퍼입니다.
+// 시트가 없으면 헤더 행까지 자동으로 만들어준 뒤 반환합니다.
+function ensureSheetWithHeaders_(sheetName, headers) {
+  const ss = ss_();
+  let sh = ss.getSheetByName(sheetName);
+  if (!sh) {
+    sh = ss.insertSheet(sheetName);
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+  return sh;
+}
+
 function splitKeywords_(raw) {
   if (!raw) return [];
   return String(raw).split(/[,，\s]+/).map(s => s.trim()).filter(Boolean);
@@ -98,6 +121,9 @@ function actionCheckIn_(p) {
     appendRow_(SHEET_NAMES.ATTENDANCE, {
       empId: p.empId, name: p.name, org: p.org || match.org, role: match.role || "", time: new Date().toISOString()
     });
+    // 캐시된 출석 명단이 있다면 즉시 무효화 — 방금 출석체크한 사람이 곧바로 발표자료 등
+    // 출석 게이트를 통과해야 하는데, 캐시가 남아있으면 최대 캐시 시간만큼 "미출석"으로 잘못 보일 수 있음.
+    CacheService.getScriptCache().remove("attendanceList");
     return { ok: true };
   } finally {
     lock.releaseLock();
@@ -108,6 +134,40 @@ function actionGetAttendanceList_() {
   const rows = sheetToObjects_(SHEET_NAMES.ATTENDANCE);
   rows.sort((a, b) => new Date(b.time) - new Date(a.time));
   return { ok: true, list: rows };
+}
+
+// 몰리는 순간 매 요청마다 시트를 다시 읽지 않도록, 출석 명단을 10초간 캐시합니다.
+// (출석체크 시 위에서 즉시 캐시를 지우므로, 방금 출석한 사람이 바로 게이트를 통과하는 데는 문제 없음)
+function getAttendanceCached_() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get("attendanceList");
+  if (cached) return JSON.parse(cached);
+  const rows = sheetToObjects_(SHEET_NAMES.ATTENDANCE);
+  cache.put("attendanceList", JSON.stringify(rows), 10);
+  return rows;
+}
+
+// 자료 목록은 연수 중 거의 바뀌지 않으므로 60초간 캐시합니다.
+function getMaterialsCached_() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get("materialsList");
+  if (cached) return JSON.parse(cached);
+  const list = sheetToObjects_(SHEET_NAMES.MATERIALS);
+  cache.put("materialsList", JSON.stringify(list), 60);
+  return list;
+}
+
+// 발표자료 페이지 전용 — "출석했는지 확인" + "자료 목록 조회"를 한 번의 요청으로 함께 처리합니다.
+// (기존에는 두 번 왕복했는데, 각 왕복마다 Apps Script 특유의 리다이렉트 지연이 붙어 로딩이 느려지는
+// 원인이 되었습니다. 하나로 합치고, 캐시까지 적용해 몰리는 상황에서도 부담을 줄입니다.)
+function actionGetMaterialsGate_(p) {
+  const empId = String(p.empId || "").trim();
+  const name = String(p.name || "").trim();
+  if (!empId || !name) return { ok: true, attended: false, list: [] };
+  const attendance = getAttendanceCached_();
+  const attended = attendance.some(a => String(a.empId).trim() === empId && String(a.name).trim() === name);
+  if (!attended) return { ok: true, attended: false, list: [] };
+  return { ok: true, attended: true, list: getMaterialsCached_() };
 }
 
 // 개인정보(이름 등) 노출 없이 전체 명단 인원수만 반환 — 출석체크 화면의 게이지 차트용
@@ -205,21 +265,41 @@ function actionSaveProfile_(p) {
 function actionLogScan_(p) {
   if (String(p.scannerId) === String(p.scannedId)) return { ok: false, message: "본인 QR입니다." };
   const lock = LockService.getScriptLock();
+  let firstScanRank = null; // NETWORK_EVENT_TARGETS에 지정된 순번의 당첨자에게만 값이 채워집니다 (그 외에는 항상 null).
   lock.waitLock(10000);
   try {
     const logs = sheetToObjects_(SHEET_NAMES.SCANLOG);
     const already = logs.find(l => String(l.scannerId) === String(p.scannerId) && String(l.scannedId) === String(p.scannedId));
     if (!already) {
+      // "N번째 네트워크 활동 참여자" 당첨 여부는 각자의 "첫 스캔" 기준으로 판단합니다.
+      // (스캔을 이미 한 번이라도 해본 사람은 이후 스캔에서는 이 판정을 다시 하지 않습니다.)
+      const isFirstScanForThisPerson = !logs.some(l => String(l.scannerId) === String(p.scannerId));
       appendRow_(SHEET_NAMES.SCANLOG, { scannerId: p.scannerId, scannedId: p.scannedId, time: new Date().toISOString() });
+      if (isFirstScanForThisPerson) {
+        const distinctScanners = new Set(logs.map(l => String(l.scannerId)));
+        distinctScanners.add(String(p.scannerId));
+        const rank = distinctScanners.size; // 이 사람을 포함해 지금까지 네트워크 활동을 시작한 총 인원수
+
+        // 지정된 순번(예: 10번째)에 해당할 때만 당첨자로 확정하고, 확인용으로 시트에 기록해둡니다.
+        // (다른 사람들에게는 몇 번째인지 전혀 노출되지 않습니다 — 당첨자 본인만 배너를 보게 됩니다.)
+        if (NETWORK_EVENT_TARGETS.indexOf(rank) !== -1) {
+          firstScanRank = rank;
+          ensureSheetWithHeaders_(SHEET_NAMES.EVENT_WINNERS, ["rank", "empId", "name", "org", "time"]);
+          const roster = sheetToObjects_(SHEET_NAMES.ROSTER);
+          const winner = roster.find(r => String(r.empId) === String(p.scannerId));
+          appendRow_(SHEET_NAMES.EVENT_WINNERS, {
+            rank, empId: p.scannerId, name: winner ? winner.name : "", org: winner ? winner.org : "",
+            time: new Date().toISOString()
+          });
+        }
+      }
     }
   } finally {
     lock.releaseLock();
   }
   const profileRes = actionGetProfile_({ empId: p.scannedId });
-  if (!profileRes.ok) {
-    return { ok: true, profile: { empId: p.scannedId, name: "(미등록 프로필)", org: "", role: "", keywords: [], intro: "" } };
-  }
-  return { ok: true, profile: profileRes.profile };
+  const profile = profileRes.ok ? profileRes.profile : { empId: p.scannedId, name: "(미등록 프로필)", org: "", role: "", keywords: [], intro: "" };
+  return { ok: true, profile, firstScanRank };
 }
 
 function actionGetMyScans_(p) {
@@ -303,7 +383,7 @@ function actionGetSchedule_() {
 }
 
 function actionGetMaterials_() {
-  return { ok: true, list: sheetToObjects_(SHEET_NAMES.MATERIALS) };
+  return { ok: true, list: getMaterialsCached_() };
 }
 
 // 발표자료 열람 기록 — 잠금 없이 매번 새 행만 추가합니다(중복 체크가 필요 없는 단순 로그이므로
@@ -467,6 +547,145 @@ function actionGetLeaderboard_(p) {
   return { ok: true, top10, orgRanking, me, stats, config: LEADERBOARD_CONFIG };
 }
 
+// ---------- GN 커넥트 챌린지 — 교류 다양성 통계 / 랭킹현황 시트 자동갱신 ----------
+// actionGetLeaderboard_와 별도로, "관리자 통계" 화면과 "랭킹현황" 시트 자동갱신에 공통으로 쓰는
+// 집계 함수입니다. 개인별 점수 랭킹은 물론, "얼마나 다양한 소속·직급과 교류했는지"까지 함께 계산합니다.
+function buildNetworkAnalytics_() {
+  const scanlog = sheetToObjects_(SHEET_NAMES.SCANLOG);
+  const roster = sheetToObjects_(SHEET_NAMES.ROSTER);
+  const profiles = sheetToObjects_(SHEET_NAMES.PROFILES);
+  const attendance = sheetToObjects_(SHEET_NAMES.ATTENDANCE);
+
+  const orgCache = {}, nameCache = {}, roleCache = {};
+  function orgOf(empId) {
+    const key = String(empId);
+    if (key in orgCache) return orgCache[key];
+    const pr = profiles.find(r => String(r.empId) === key);
+    const ro = roster.find(r => String(r.empId) === key);
+    return (orgCache[key] = (pr && pr.org) || (ro && ro.org) || "");
+  }
+  function nameOf(empId) {
+    const key = String(empId);
+    if (key in nameCache) return nameCache[key];
+    const pr = profiles.find(r => String(r.empId) === key);
+    const ro = roster.find(r => String(r.empId) === key);
+    return (nameCache[key] = (pr && pr.name) || (ro && ro.name) || key);
+  }
+  function roleOf(empId) {
+    const key = String(empId);
+    if (key in roleCache) return roleCache[key];
+    const pr = profiles.find(r => String(r.empId) === key);
+    const ro = roster.find(r => String(r.empId) === key);
+    return (roleCache[key] = (pr && pr.role) || (ro && ro.role) || "");
+  }
+
+  const byScanner = {};
+  scanlog.forEach(row => {
+    const scannerId = String(row.scannerId);
+    (byScanner[scannerId] = byScanner[scannerId] || []).push(String(row.scannedId));
+  });
+
+  const individual = Object.keys(byScanner).map(empId => {
+    const scannedIds = byScanner[empId];
+    const myOrg = orgOf(empId);
+    const crossOrgCount = scannedIds.filter(sid => orgOf(sid) && orgOf(sid) !== myOrg).length;
+    const uniqueCount = scannedIds.length;
+    // 교류 다양성 = 나와 "다른" 소속 종류 수 / 스캔한 상대방들의 직급 종류 수 (많을수록 다양하게 교류한 것)
+    const orgDiversity = new Set(scannedIds.map(orgOf).filter(o => o && o !== myOrg)).size;
+    const roleDiversity = new Set(scannedIds.map(roleOf).filter(Boolean)).size;
+    return {
+      empId, name: nameOf(empId), org: myOrg,
+      uniqueCount, crossOrgCount,
+      score: computeLeaderboardScore_(uniqueCount, crossOrgCount),
+      orgDiversity, roleDiversity
+    };
+  });
+
+  const attendanceCountByOrg = {};
+  attendance.forEach(a => {
+    const org = a.org || "(미지정)";
+    attendanceCountByOrg[org] = (attendanceCountByOrg[org] || 0) + 1;
+  });
+
+  const orgMap = {};
+  individual.forEach(ind => {
+    const org = ind.org || "(미지정)";
+    if (!orgMap[org]) orgMap[org] = { org, totalScore: 0, memberCount: 0, totalScans: 0, reachSet: new Set() };
+    orgMap[org].totalScore += ind.score;
+    orgMap[org].memberCount += 1;
+    orgMap[org].totalScans += ind.uniqueCount;
+    // 소속 단위 교류 다양성 = 그 소속 구성원들이 스캔한 "다른 소속"들의 합집합 크기
+    (byScanner[ind.empId] || []).forEach(sid => {
+      const sOrg = orgOf(sid);
+      if (sOrg && sOrg !== org) orgMap[org].reachSet.add(sOrg);
+    });
+  });
+  const orgRanking = Object.keys(attendanceCountByOrg).map(org => {
+    const bucket = orgMap[org] || { org, totalScore: 0, memberCount: 0, totalScans: 0, reachSet: new Set() };
+    const attendanceCount = attendanceCountByOrg[org];
+    const avgScore = attendanceCount > 0 ? Math.round((bucket.totalScore / attendanceCount) * 10) / 10 : 0;
+    return {
+      org, totalScore: bucket.totalScore, memberCount: bucket.memberCount, totalScans: bucket.totalScans,
+      attendanceCount, avgScore, orgReachCount: bucket.reachSet.size
+    };
+  }).sort((a, b) => b.avgScore - a.avgScore);
+
+  const individualByScore = individual.slice().sort((a, b) => b.score - a.score);
+  const individualByDiversity = individual.slice()
+    .sort((a, b) => (b.orgDiversity - a.orgDiversity) || (b.roleDiversity - a.roleDiversity) || (b.uniqueCount - a.uniqueCount));
+  const orgByReach = orgRanking.slice().sort((a, b) => b.orgReachCount - a.orgReachCount);
+
+  return { individualByScore, orgRanking, individualByDiversity, orgByReach };
+}
+
+// 관리자 PIN을 맞게 입력한 경우에만 통계를 내려줍니다 (전체 공개 아님).
+// ① 개인 랭킹 TOP10  ② 소속별 랭킹 TOP10  ③ 교류 다양성(소속수·직급수) 개인 TOP10  ④ 교류 다양성 소속 TOP10
+function actionGetNetworkStats_(p) {
+  if (String(p.pin || "") !== String(ADMIN_PIN)) return { ok: false, message: "암호가 올바르지 않습니다." };
+  const a = buildNetworkAnalytics_();
+  return {
+    ok: true,
+    individualTop10: a.individualByScore.slice(0, 10),
+    orgTop10: a.orgRanking.slice(0, 10),
+    individualDiversityTop10: a.individualByDiversity.slice(0, 10),
+    orgDiversityTop10: a.orgByReach.slice(0, 10)
+  };
+}
+
+// "랭킹현황" 시트에 개인/소속 랭킹을 자동으로 써줍니다. 이 시트가 없으면 자동으로 만듭니다.
+// 이 시트를 구글시트에서 "뷰어" 권한으로 공유해두면, 공유받은 사람은 사이트에 접속하지 않고도
+// 시트를 열어두기만 하면 몇 분 간격으로 갱신되는 최신 랭킹을 실시간으로 볼 수 있습니다.
+function updateLeaderboardSheet_() {
+  const a = buildNetworkAnalytics_();
+  const ss = ss_();
+  let sh = ss.getSheetByName(SHEET_NAMES.LEADERBOARD_VIEW);
+  if (!sh) sh = ss.insertSheet(SHEET_NAMES.LEADERBOARD_VIEW);
+  sh.clear();
+
+  sh.getRange(1, 1, 1, 2).setValues([["마지막 갱신", Utilities.formatDate(new Date(), "Asia/Seoul", "yyyy-MM-dd HH:mm:ss")]]);
+
+  const top10 = a.individualByScore.slice(0, 10);
+  sh.getRange(3, 1, 1, 4).setValues([["개인 랭킹 TOP10", "소속", "점수", "스캔수"]]);
+  if (top10.length) sh.getRange(4, 1, top10.length, 4).setValues(top10.map(r => [r.name, r.org, r.score, r.uniqueCount]));
+
+  const orgStart = 4 + Math.max(top10.length, 1) + 1;
+  sh.getRange(orgStart, 1, 1, 4).setValues([["소속별 랭킹", "평균점수", "출석인원", "참여인원"]]);
+  if (a.orgRanking.length) {
+    sh.getRange(orgStart + 1, 1, a.orgRanking.length, 4).setValues(a.orgRanking.map(o => [o.org, o.avgScore, o.attendanceCount, o.memberCount]));
+  }
+}
+
+// 배포 후 관리자가 Apps Script 편집기에서 이 함수를 딱 한 번 선택해서 실행(▶ 실행)하면,
+// 이후 5분 간격으로 "랭킹현황" 시트가 자동 갱신되도록 예약됩니다. (다시 실행해도 안전 —
+// 기존 예약을 지우고 새로 만들 뿐입니다.)
+function installLeaderboardAutoUpdate_() {
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === "updateLeaderboardSheet_") ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger("updateLeaderboardSheet_").timeBased().everyMinutes(5).create();
+  updateLeaderboardSheet_();
+}
+
 // ---------- 설문조사 결과 비공개 보호용 암호 ----------
 // 설문조사 결과는 전체 공개하지 않고, 이 암호를 아는 담당자만 조회할 수 있습니다.
 // 반드시 아래 기본값을 실제 사용할 암호로 바꾼 뒤 다시 배포(새 배포 또는 배포 관리에서 수정)하세요.
@@ -525,12 +744,14 @@ function route_(action, p) {
     case "getMyScans": return actionGetMyScans_(p);
     case "getSchedule": return actionGetSchedule_();
     case "getMaterials": return actionGetMaterials_();
+    case "getMaterialsGate": return actionGetMaterialsGate_(p);
     case "logMaterialView": return actionLogMaterialView_(p);
     case "getMaterialFile": return actionGetMaterialFile_(p);
     case "getBanners": return actionGetBanners_();
     case "getRoomAssignment": return actionGetRoomAssignment_();
     case "getMealGroups": return actionGetMealGroups_();
     case "getLeaderboard": return actionGetLeaderboard_(p);
+    case "getNetworkStats": return actionGetNetworkStats_(p);
     case "submitSurvey": return actionSubmitSurvey_(p);
     case "getSurveyResults": return actionGetSurveyResults_(p);
     default: return { ok: false, message: "알 수 없는 요청입니다: " + action };
