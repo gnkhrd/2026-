@@ -18,11 +18,14 @@ const SHEET_NAMES = {
                             // (전부 웹페이지(qr-card.html)에서 직원이 직접 입력/업로드하면 자동으로 채워짐 — 구글폼·구글계정 불필요.
                             //  최초에는 완전히 비어있어도 되고, 예시행만 삭제하면 됨)
   SCANLOG: "ScanLog",       // 컬럼: scannerId, scannedId, time
-  SCHEDULE: "Schedule",     // 컬럼: date, time, title, speaker, tag
+  SCHEDULE: "Schedule",     // 컬럼: date, time, title, speaker, tag, link1Label, link1Url, link2Label, link2Url
                             // (tag는 선택 입력 — 홈 화면 "오늘의 주요일정" 4칸에 노출할 행에만 원하는 문구를 적으면 됨.
                             //  같은 날짜(date) 안에서 tag가 채워진 행만, 시간순으로 최대 4개까지 홈 화면에 나열됨.
                             //  일자별로 다른 문구를 적으면 그날엔 그 4개가 자동으로 노출됨 (아이콘은 문구 보고 자동 매칭).
                             //  일정표(schedule.html) 페이지에는 tag와 상관없이 전체 일정이 날짜별로 그대로 나옴)
+                            //  link1Url/link2Url은 선택 입력 — 이 행이 "지금 진행 중"인 시간대에만 홈 화면 상단에 실시간
+                            //  참여 버튼으로 노출됩니다 (예: 주제발표 행엔 슬라이도 링크만, 토크쇼 행엔 슬라이도+퀴즈쇼 둘 다
+                            //  채우면 동시에 노출됨). link1Label/link2Label을 비워두면 버튼 문구는 "실시간 참여"로 표시됨.
   MATERIALS: "Materials",   // 컬럼: title, speaker, file  (file = 구글드라이브 파일ID 또는 전체 URL / PDF 또는 구글슬라이드 형식만 지원)
   MATERIAL_VIEWS: "MaterialViews", // 컬럼: empId, name, org, materialTitle, viewedAt
                             // (발표자료를 열람할 때마다 한 줄씩 쌓입니다 — 유출 등 문제 발생 시 열람자 추적용.
@@ -41,9 +44,16 @@ const SHEET_NAMES = {
   LEADERBOARD_VIEW: "LeaderboardView", // 이 시트는 직접 만들 필요 없이 자동으로 생성/갱신됩니다 — 사람이 손으로 수정하지 마세요.
                             // (updateLeaderboardSheet_ 가 몇 분 간격으로 개인/소속 랭킹을 자동으로 써주는 "보여주기용" 시트입니다.
                             //  이 시트를 "뷰어" 권한으로 공유해두면, 공유받은 사람이 실시간으로 랭킹을 볼 수 있습니다.)
-  EVENT_WINNERS: "EventWinners" // 이 시트도 직접 만들 필요 없이 자동으로 생성됩니다.
+  EVENT_WINNERS: "EventWinners", // 이 시트도 직접 만들 필요 없이 자동으로 생성됩니다.
                             // (NETWORK_EVENT_TARGETS에 지정한 순번의 당첨자가 나올 때마다 한 줄씩 자동 기록됩니다:
                             //  rank, empId, name, org, time)
+  COMMUNITY_POSTERS: "CommunityPosters", // 컬럼: id, org, title, imageUrl
+                            // (공동체 활동 포스터 갤러리용 — 담당자가 직접 입력합니다. id는 1,2,3... 처럼 행마다 겹치지 않는 값이면
+                            //  충분합니다 (좋아요 기록과 매칭하는 용도). imageUrl은 구글드라이브 공유링크를 그대로 붙여넣어도
+                            //  서버에서 자동으로 화면에 보이는 형식으로 변환합니다.)
+  POSTER_LIKES: "PosterLikes" // 이 시트는 직접 만들 필요 없이 자동으로 생성됩니다.
+                            // (컬럼: id, empId, time — 누가 어떤 포스터에 좋아요를 눌렀는지 기록. 한 사람당 같은 포스터에는
+                            //  한 번만 기록되며, 취소(재클릭)는 지원하지 않습니다.)
 };
 
 // "N번째로 네트워크 활동을 시작한 사람"을 이벤트 당첨자로 선정할 순번들입니다.
@@ -428,6 +438,68 @@ function actionGetBanners_() {
   return { ok: true, list: sheetToObjects_(SHEET_NAMES.BANNERS) };
 }
 
+// ---------- 공동체 활동 포스터 갤러리 + 좋아요 ----------
+// 구글드라이브 공유링크(예: https://drive.google.com/file/d/{id}/view?usp=sharing)를
+// 브라우저 <img>가 바로 표시할 수 있는 형식으로 바꿔줍니다. 이미 올바른 형식이거나
+// 드라이브 링크가 아니면 원본 그대로 반환합니다. (actionGetMaterialFile_의 ID 추출 방식과 동일)
+function normalizeDriveImageUrl_(raw) {
+  const url = String(raw || "").trim();
+  if (!url) return "";
+  const m = url.match(/\/d\/([^/]+)/) || url.match(/[?&]id=([^&]+)/);
+  if (m) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+  return url;
+}
+
+function actionGetCommunityPosters_(p) {
+  const posters = sheetToObjects_(SHEET_NAMES.COMMUNITY_POSTERS);
+  const likes = sheetToObjects_(SHEET_NAMES.POSTER_LIKES);
+  const empId = String((p && p.empId) || "").trim();
+
+  const countById = {};
+  const likedByMeSet = new Set();
+  likes.forEach(l => {
+    const id = String(l.id);
+    countById[id] = (countById[id] || 0) + 1;
+    if (empId && String(l.empId).trim() === empId) likedByMeSet.add(id);
+  });
+
+  const list = posters.map(row => {
+    const id = String(row.id);
+    return {
+      id,
+      org: row.org || "",
+      title: row.title || "",
+      imageUrl: normalizeDriveImageUrl_(row.imageUrl),
+      likeCount: countById[id] || 0,
+      likedByMe: likedByMeSet.has(id)
+    };
+  });
+  return { ok: true, list };
+}
+
+// 좋아요는 취소(재클릭) 없이 1인당 1포스터에 1회만 기록됩니다. (여러 포스터에는 각각 누를 수 있음)
+function actionLikePoster_(p) {
+  const empId = String(p.empId || "").trim();
+  const id = String(p.id || "").trim();
+  if (!empId) return { ok: false, message: "먼저 사번·성명을 확인해주세요." };
+  if (!id) return { ok: false, message: "포스터 정보를 찾을 수 없습니다." };
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    ensureSheetWithHeaders_(SHEET_NAMES.POSTER_LIKES, ["id", "empId", "time"]);
+    const likes = sheetToObjects_(SHEET_NAMES.POSTER_LIKES);
+    const already = likes.some(l => String(l.id) === id && String(l.empId).trim() === empId);
+    if (already) return { ok: false, message: "이미 이 포스터에 좋아요를 누르셨습니다." };
+
+    appendRow_(SHEET_NAMES.POSTER_LIKES, { id, empId, time: new Date().toISOString() });
+    const likeCount = likes.filter(l => String(l.id) === id).length + 1;
+    return { ok: true, likeCount };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 // ---------- 방배정표 ----------
 // 650명 전체 명단을 그대로 반환합니다 (개인정보는 사번/성명/소속/방 뿐이라
 // 다른 기능들과 동일 수준). 클라이언트(info.html)에서 사번+성명 검색과
@@ -748,6 +820,8 @@ function route_(action, p) {
     case "logMaterialView": return actionLogMaterialView_(p);
     case "getMaterialFile": return actionGetMaterialFile_(p);
     case "getBanners": return actionGetBanners_();
+    case "getCommunityPosters": return actionGetCommunityPosters_(p);
+    case "likePoster": return actionLikePoster_(p);
     case "getRoomAssignment": return actionGetRoomAssignment_();
     case "getMealGroups": return actionGetMealGroups_();
     case "getLeaderboard": return actionGetLeaderboard_(p);

@@ -50,7 +50,8 @@ window.MOCK_SEED = {
     { date: "2026-09-01", time: "14:00", title: "비전공유", speaker: "사무총장", tag: "비전공유" },
     { date: "2026-09-01", time: "14:50", title: "특별강연", speaker: "협의중", tag: "특별강연" },
     { date: "2026-09-01", time: "16:20", title: "기조강연 — 콜렉티브 임팩트", speaker: "이봉주 교수", tag: "기조강연" },
-    { date: "2026-09-02", time: "09:30", title: "주제·사례발표 (GN 파이어사이드 챗)", speaker: "", tag: "주제발표" },
+    { date: "2026-09-02", time: "09:30", title: "주제·사례발표 (GN 파이어사이드 챗)", speaker: "", tag: "주제발표",
+      link1Label: "슬라이도", link1Url: "https://app.sli.do/event/d8k1ZE8zR8XRNXGG3pr1LK" },
     { date: "2026-09-02", time: "13:30", title: "공동체 프로그램 (G-BU-Ting)", speaker: "", tag: "공동체활동" },
     { date: "2026-09-03", time: "09:30", title: "공동체활동 결과공유", speaker: "", tag: "결과공유" },
     { date: "2026-09-03", time: "10:40", title: "장기근속 시상", speaker: "", tag: "장기근속시상" },
@@ -86,5 +87,11 @@ window.MOCK_SEED = {
     { date: "2026-09-02", meal: "저녁", target: "경기 대표직책", menu: "열무 보리비빔밥 반상", count: "10명", members: "김민애, 정근진, 김지연, 강은영, 김기영, 주진관, 문상록, 조은승, 손혜영, 정욱재" },
     { date: "2026-09-03", meal: "아침", target: "전북 대표직책", menu: "조식뷔페", count: "8명", members: "유기용, 김경환, 김완진, 김미선, 강민숙, 조현경, 최은희, 조자영" },
     { date: "2026-09-03", meal: "점심", target: "충청 대표직책", menu: "소갈비살 영양솥밥", count: "8명", members: "김길수, 김성찬, 백순규, 최은희, 강은정, 김정민, 채종병, 이일수" }
+  ],
+  // 공동체 활동 포스터 갤러리 테스트용 샘플 (실제로는 CommunityPosters 시트에 담당자가 직접 입력)
+  communityPosters: [
+    { id: "1", org: "충남지부", title: "우리 동네 아동권리 지도", imageUrl: "https://placehold.co/400x520/89A230/FFFFFF?text=충남지부" },
+    { id: "2", org: "경남지부", title: "AI와 함께 그린 아동행복", imageUrl: "https://placehold.co/400x520/6E8226/FFFFFF?text=경남지부" },
+    { id: "3", org: "광주지부", title: "공동체가 만드는 변화", imageUrl: "https://placehold.co/400x520/685A55/FFFFFF?text=광주지부" }
   ],
 };

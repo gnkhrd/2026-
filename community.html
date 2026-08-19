@@ -42,8 +42,105 @@
       추가/수정할 수 있습니다. (이 페이지는 HTML이라 텍스트·이미지·표 어떤 형태로든 구성 가능)
     </div>
   </div>
+
+  <div class="section-title">
+    <span>🖼️ 포스터 갤러리 · 특별상 투표</span>
+  </div>
+  <div class="notice info">
+    마음에 드는 포스터에 좋아요를 눌러주세요! 포스터당 좋아요는 1인 1회만 가능하고(취소 불가),
+    여러 포스터에 각각 눌러도 괜찮아요. 좋아요가 가장 많은 포스터에 특별상을 드립니다.
+  </div>
+
+  <!-- 아직 사번·성명이 확인되지 않은 경우에만 노출 (좋아요를 누르려면 필요) -->
+  <div id="poster-identify-box" class="card" style="display:none;">
+    <div style="font-size:13px; color:var(--text-dim); margin-bottom:12px;">좋아요를 누르려면 먼저 사번·성명을 확인해주세요.</div>
+    <div class="field">
+      <label>사번</label>
+      <input type="text" id="pi-empid" placeholder="예: A10001">
+    </div>
+    <div class="field">
+      <label>성명</label>
+      <input type="text" id="pi-name" placeholder="예: 김민준">
+    </div>
+    <div id="pi-result"></div>
+    <button class="btn btn-primary" id="pi-check-btn">확인하기</button>
+  </div>
+
+  <div id="poster-grid" class="grid-2">
+    <div class="empty">불러오는 중...</div>
+  </div>
 </div>
 <script src="assets/config.js"></script>
+<script src="assets/mockdata.js"></script>
+<script src="assets/api.js"></script>
 <script src="assets/util.js"></script>
+<script>
+let POSTERS = [];
+
+function hasIdentity() { return !!(myEmpId() && myName()); }
+
+function renderPosterGrid() {
+  const wrap = document.getElementById("poster-grid");
+  if (!POSTERS.length) { wrap.innerHTML = '<div class="empty">아직 등록된 포스터가 없습니다.</div>'; return; }
+  wrap.innerHTML = POSTERS.map(p => `
+    <div class="poster-card">
+      <img src="${p.imageUrl}" alt="${p.title}" loading="lazy">
+      <div class="poster-org">${p.org}</div>
+      <div class="poster-title">${p.title}</div>
+      <button class="poster-like-btn${p.likedByMe ? " liked" : ""}" data-id="${p.id}" ${p.likedByMe ? "disabled" : ""}>
+        <span>${p.likedByMe ? "❤️ 좋아요 완료" : "🤍 좋아요"}</span>
+        <span class="poster-like-count">${p.likeCount}</span>
+      </button>
+    </div>
+  `).join("");
+  wrap.querySelectorAll(".poster-like-btn:not(.liked)").forEach(btn => {
+    btn.addEventListener("click", () => handleLike(btn.dataset.id, btn));
+  });
+}
+
+async function loadPosters() {
+  const res = await API.getCommunityPosters(myEmpId());
+  if (!res.ok) return;
+  POSTERS = res.list;
+  renderPosterGrid();
+}
+
+async function handleLike(id, btn) {
+  if (!hasIdentity()) {
+    const box = document.getElementById("poster-identify-box");
+    box.style.display = "";
+    box.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+  btn.disabled = true;
+  const res = await API.likePoster({ empId: myEmpId(), id });
+  if (!res.ok) {
+    alert(res.message || "좋아요 처리에 실패했습니다.");
+    btn.disabled = false;
+    return;
+  }
+  loadPosters();
+}
+
+document.getElementById("pi-check-btn").addEventListener("click", async () => {
+  const empId = document.getElementById("pi-empid").value.trim();
+  const name = document.getElementById("pi-name").value.trim();
+  const resultEl = document.getElementById("pi-result");
+  if (!empId || !name) { resultEl.innerHTML = '<div class="notice error">사번과 성명을 모두 입력해주세요.</div>'; return; }
+  const btn = document.getElementById("pi-check-btn");
+  btn.disabled = true; btn.textContent = "확인 중...";
+  const res = await API.getOrInitProfile({ empId, name });
+  btn.disabled = false; btn.textContent = "확인하기";
+  if (!res.ok) { resultEl.innerHTML = `<div class="notice error">${res.message}</div>`; return; }
+  resultEl.innerHTML = "";
+  setMyEmpId(empId);
+  setMyName(name);
+  document.getElementById("poster-identify-box").style.display = "none";
+  loadPosters();
+});
+
+if (!hasIdentity()) document.getElementById("poster-identify-box").style.display = "";
+loadPosters();
+</script>
 </body>
 </html>

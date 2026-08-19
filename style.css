@@ -299,6 +299,27 @@ body{
 .doc-list-item .name{ font-size:14px; font-weight:700; }
 .doc-list-item .meta{ font-size:11.5px; color:var(--text-faint); }
 
+/* ---------- 공동체 활동 포스터 갤러리 ---------- */
+.poster-card{
+  background: var(--bg-card); border:1px solid var(--border); border-radius: var(--radius);
+  padding:10px; box-shadow: 0 1px 3px rgba(59,52,44,.05);
+}
+.poster-card img{
+  width:100%; aspect-ratio: 4/5; object-fit:cover; display:block;
+  border-radius: var(--radius-sm); margin-bottom:8px; background: var(--bg-card-2);
+}
+.poster-org{ font-size:11px; color:var(--text-faint); font-weight:700; }
+.poster-title{ font-size:13.5px; font-weight:700; margin:2px 0 10px; line-height:1.4; word-break:keep-all; }
+.poster-like-btn{
+  width:100%; padding:9px 0; border-radius:999px; border:1px solid var(--border);
+  background: var(--bg-card-2); color: var(--text-dim); font-weight:700; font-size:12.5px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+}
+.poster-like-btn.liked{
+  background: rgba(178,58,46,.10); color: var(--danger); border-color: rgba(178,58,46,.28); cursor:default;
+}
+.poster-like-count{ font-weight:800; }
+
 .prose{ font-size:14.5px; line-height:1.75; color: var(--text-dim); }
 .prose h2{ font-size:17px; color:var(--accent-dark); margin: 22px 0 8px; }
 .prose h3{ font-size:15px; color:var(--text); margin: 16px 0 6px; }
@@ -432,6 +453,14 @@ body{
 .status-badge.now{ background: rgba(137,162,48,.16); color: var(--accent-dark); border-color: rgba(137,162,48,.32); }
 .status-badge.soon{ background: rgba(185,130,44,.14); color: var(--warning); border-color: rgba(185,130,44,.3); }
 .status-badge.done, .status-badge.off{ background: var(--bg-card-2); color: var(--text-faint); }
+
+/* 현재 진행 중인 일정에 슬라이도/퀴즈쇼 등 실시간 참여 링크가 있을 때만 노출되는 버튼 행 */
+.live-link-row{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+.live-link-btn{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:8px 14px; border-radius:999px; font-size:12.5px; font-weight:700;
+  text-decoration:none; color:#fff;
+}
 
 .session-box{ display:none; }
 

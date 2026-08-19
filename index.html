@@ -21,6 +21,8 @@
       <div class="status-row">
         <span class="status-badge" id="status-badge">상태 확인 중...</span>
       </div>
+      <!-- 현재 진행 중인 일정에 실시간 참여 링크(슬라이도/퀴즈쇼 등)가 지정된 경우에만 노출 -->
+      <div id="live-link-row" class="live-link-row" style="display:none;"></div>
     </div>
 
     <!-- PC 전용: 우측 "현재 세션" 박스 -->
@@ -227,6 +229,32 @@ async function initHome() {
       ? `<div class="sb-line"><span class="sb-tag">현재</span> ${todayItems[currentIdx].time} · ${todayItems[currentIdx].title}</div>` : "";
     sbNext.innerHTML = nextIdx >= 0
       ? `<div class="sb-line"><span class="sb-tag next">다음</span> ${todayItems[nextIdx].time} · ${todayItems[nextIdx].title}</div>` : "";
+
+    // 현재 진행 중인 일정(Schedule 시트 행)에 link1Url/link2Url이 채워져 있으면 실시간 참여 버튼 노출.
+    // (예: 1일차/2일차 주제발표엔 슬라이도만, 2일차 토크쇼엔 슬라이도+퀴즈쇼 동시에 채워두면 그대로 반영됨)
+    const liveLinkRow = document.getElementById("live-link-row");
+    const liveColors = ["var(--accent)", "var(--brown-dark)"];
+    if (currentIdx >= 0) {
+      const cur = todayItems[currentIdx];
+      const links = [
+        cur.link1Url ? { label: cur.link1Label || "실시간 참여", url: cur.link1Url } : null,
+        cur.link2Url ? { label: cur.link2Label || "실시간 참여", url: cur.link2Url } : null
+      ].filter(Boolean);
+      if (links.length) {
+        liveLinkRow.style.display = "flex";
+        liveLinkRow.innerHTML = links.map((l, i) => `
+          <a class="live-link-btn" href="${l.url}" target="_blank" rel="noopener" style="background:${liveColors[i % liveColors.length]};">
+            🔗 ${l.label}
+          </a>
+        `).join("");
+      } else {
+        liveLinkRow.style.display = "none";
+        liveLinkRow.innerHTML = "";
+      }
+    } else {
+      liveLinkRow.style.display = "none";
+      liveLinkRow.innerHTML = "";
+    }
   }
 
   // ---------- 2) "오늘의 주요일정" 4칸 — 오늘(KST) 날짜의 Schedule 행 중 tag 칸이 채워진 것만, 최대 4개 ----------
