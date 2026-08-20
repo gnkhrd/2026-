@@ -208,7 +208,7 @@ document.getElementById("submit-btn").addEventListener("click", async () => {
     refreshList();
   } else if (String(res.message || "").includes("이미 출석 처리되었습니다")) {
     // 이미 다른 기기(PC 등)에서 출석체크를 완료한 경우입니다. 사번/성명은 명단과 이미 대조되어
-    // 유효하다는 뜻이므로, 이 기기(브라우저)에도 신원을 저장해줘야 발표자료 등 출석 확인이
+    // 유효하다는 뜻이므로, 이 기기(브라우저)에도 신원을 저장해줘야 라이브포럼 등 출석 확인이
     // 필요한 다른 화면들이 이 기기에서도 정상적으로 열립니다.
     setMyEmpId(empId);
     setMyName(name);
