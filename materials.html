@@ -121,18 +121,9 @@ function renderList() {
   });
 }
 
-/* ---------- 구글드라이브 뷰어(팝업) ---------- */
-// 공유링크(예: https://drive.google.com/file/d/{id}/view?usp=sharing)나 파일ID를 그대로 받아
-// 구글이 직접 서빙하는 미리보기 주소로 바꿔줍니다. (서버를 거치지 않아 로딩이 훨씬 빠릅니다)
-function driveFileIdFromRaw(raw) {
-  const s = String(raw || "").trim();
-  const m = s.match(/\/d\/([^/]+)/) || s.match(/[?&]id=([^&]+)/);
-  return m ? m[1] : s;
-}
-
-function openViewer(m) {
+/* ---------- 구글 뷰어(팝업) ---------- */
+async function openViewer(m) {
   if (!m.file) { alert("아직 업로드되지 않은 자료입니다."); return; }
-  const id = driveFileIdFromRaw(m.file);
 
   document.getElementById("viewer-title").textContent = m.title;
   document.getElementById("viewer-modal").style.display = "flex";
@@ -141,12 +132,20 @@ function openViewer(m) {
   const loading = document.getElementById("pdf-viewer-loading");
   frame.style.display = "none";
   loading.style.display = "";
+  loading.textContent = "불러오는 중...";
 
   // 열람 기록 — 뷰어 로딩과 별개로 조용히 남겨둡니다(실패해도 열람 자체를 막지 않음).
   API.logMaterialView({ empId: myEmpId(), name: myName(), org: "", materialTitle: m.title }).catch(() => {});
 
+  // 파일 전체를 읽지 않고, 이 파일에 맞는 임베드 주소만 가볍게 받아옵니다 (구글 슬라이드 원본이면
+  // 슬라이드 전용 임베드를 써서 모바일에서도 화면을 꽉 채워 보여줍니다).
+  const res = await API.getMaterialEmbedUrl({ file: m.file });
+  if (!res.ok) {
+    loading.textContent = res.message || "자료를 불러오지 못했습니다.";
+    return;
+  }
   frame.onload = () => { loading.style.display = "none"; frame.style.display = ""; };
-  frame.src = `https://drive.google.com/file/d/${id}/preview`;
+  frame.src = res.embedUrl;
 }
 
 // 전체화면: 아이폰 사파리는 임의 요소의 전체화면 전환을 지원하지 않아 이 기기에서는

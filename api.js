@@ -476,6 +476,19 @@
       return callServer("getMaterialFile", { file });
     },
 
+    // 파일 내용 전체가 아니라, 이 파일에 맞는 구글 임베드 주소만 가볍게 받아옵니다
+    // (구글 슬라이드 원본이면 슬라이드 전용 임베드, 그 외엔 드라이브 미리보기 주소).
+    async getMaterialEmbedUrl({ file }) {
+      if (IS_MOCK) {
+        await delay(100);
+        const m = String(file || "").match(/\/d\/([^/]+)/) || String(file || "").match(/[?&]id=([^&]+)/);
+        const id = m ? m[1] : file;
+        return id ? { ok: true, embedUrl: `https://drive.google.com/file/d/${id}/preview` }
+                   : { ok: false, message: "등록된 파일이 없습니다." };
+      }
+      return callServer("getMaterialEmbedUrl", { file });
+    },
+
     // ---------- 방배정표 ----------
     async getRoomAssignment() {
       if (IS_MOCK) { await delay(150); return { ok: true, list: window.MOCK_SEED.rooms || [] }; }
