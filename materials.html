@@ -122,8 +122,21 @@ function renderList() {
 }
 
 /* ---------- 구글 뷰어(팝업) ---------- */
+// 공유링크(예: https://drive.google.com/file/d/{id}/view?usp=sharing)나 파일ID를 그대로 받아
+// "새 탭에서 열기" 대체 링크를 만들 때 파일ID만 뽑아냅니다.
+function driveFileIdFromRaw(raw) {
+  const s = String(raw || "").trim();
+  const m = s.match(/\/d\/([^/]+)/) || s.match(/[?&]id=([^&]+)/);
+  return m ? m[1] : s;
+}
+
+let viewerSession = 0; // 팝업을 닫고 다른 자료를 빠르게 다시 열었을 때, 이전 자료의 지연 타이머가
+                        // 새로 연 자료의 화면을 덮어쓰지 않도록 구분하는 용도입니다.
+
 async function openViewer(m) {
   if (!m.file) { alert("아직 업로드되지 않은 자료입니다."); return; }
+  const mySession = ++viewerSession;
+  const openUrl = `https://drive.google.com/file/d/${driveFileIdFromRaw(m.file)}/view`;
 
   document.getElementById("viewer-title").textContent = m.title;
   document.getElementById("viewer-modal").style.display = "flex";
@@ -132,7 +145,7 @@ async function openViewer(m) {
   const loading = document.getElementById("pdf-viewer-loading");
   frame.style.display = "none";
   loading.style.display = "";
-  loading.textContent = "불러오는 중...";
+  loading.innerHTML = "불러오는 중...";
 
   // 열람 기록 — 뷰어 로딩과 별개로 조용히 남겨둡니다(실패해도 열람 자체를 막지 않음).
   API.logMaterialView({ empId: myEmpId(), name: myName(), org: "", materialTitle: m.title }).catch(() => {});
@@ -140,11 +153,37 @@ async function openViewer(m) {
   // 파일 전체를 읽지 않고, 이 파일에 맞는 임베드 주소만 가볍게 받아옵니다 (구글 슬라이드 원본이면
   // 슬라이드 전용 임베드를 써서 모바일에서도 화면을 꽉 채워 보여줍니다).
   const res = await API.getMaterialEmbedUrl({ file: m.file });
+  if (mySession !== viewerSession) return; // 그 사이 팝업을 닫고 다른 자료를 열었다면 여기서 중단
   if (!res.ok) {
-    loading.textContent = res.message || "자료를 불러오지 못했습니다.";
+    loading.innerHTML = `
+      <div style="text-align:center;">
+        <div style="margin-bottom:12px;">${res.message || "자료를 불러오지 못했습니다."}</div>
+        <a href="${openUrl}" target="_blank" rel="noopener" class="btn btn-primary" style="text-decoration:none;">새 탭에서 열기</a>
+      </div>`;
     return;
   }
-  frame.onload = () => { loading.style.display = "none"; frame.style.display = ""; };
+
+  // 일부 회사 보안 프로그램/브라우저 확장은 구글 드라이브를 iframe(화면 안 팝업)으로 삽입하는 것을
+  // 자체적으로 차단합니다 — 이 경우 화면이 검게 멈춘 채로 "불러오는 중"이 끝나지 않습니다.
+  // 일정 시간 안에 로딩이 끝나지 않으면 "새 탭에서 열기" 버튼으로 대신 안내해, 어떤 환경에서도
+  // 자료를 볼 수 있게 합니다.
+  let loaded = false;
+  const fallbackTimer = setTimeout(() => {
+    if (loaded || mySession !== viewerSession) return;
+    loading.innerHTML = `
+      <div style="text-align:center;">
+        <div style="margin-bottom:12px;">미리보기를 불러오지 못했습니다.<br>보안 프로그램 등이 화면 삽입을 막고 있을 수 있어요.</div>
+        <a href="${openUrl}" target="_blank" rel="noopener" class="btn btn-primary" style="text-decoration:none;">새 탭에서 열기</a>
+      </div>`;
+  }, 6000);
+
+  frame.onload = () => {
+    if (mySession !== viewerSession) return;
+    loaded = true;
+    clearTimeout(fallbackTimer);
+    loading.style.display = "none";
+    frame.style.display = "";
+  };
   frame.src = res.embedUrl;
 }
 

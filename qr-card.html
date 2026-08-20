@@ -63,11 +63,6 @@
     <div class="qr-col-left">
       <div class="card">
         <div class="profile-card" id="my-profile"></div>
-        <div id="photo-upload-section" style="display:none; margin-top:14px;">
-          <div class="notice warning">아직 프로필 사진이 없습니다. 사진을 등록하면 명함이 더 잘 기억됩니다.</div>
-          <input type="file" id="photo-input" accept="image/*" capture="user" style="display:none;">
-          <button class="btn btn-secondary" id="btn-add-photo">📷 사진 등록하기</button>
-        </div>
         <div class="btn-row">
           <button class="btn btn-outline" id="btn-edit-profile">✏️ 내 정보 수정하기</button>
         </div>
@@ -137,30 +132,6 @@ function renderProfile(container, p) {
   }
 }
 
-// 사진 파일을 축소·압축해서 base64로 반환 (업로드 용량을 줄여 650명이 몰려도 부담 적게)
-function resizeImageToBase64(file, maxDim, quality) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const reader = new FileReader();
-    reader.onload = () => {
-      img.onload = () => {
-        let { width, height } = img;
-        if (width > height && width > maxDim) { height = Math.round(height * maxDim / width); width = maxDim; }
-        else if (height > maxDim) { width = Math.round(width * maxDim / height); height = maxDim; }
-        const canvas = document.createElement("canvas");
-        canvas.width = width; canvas.height = height;
-        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL("image/jpeg", quality || 0.75);
-        resolve(dataUrl.split(",")[1]); // base64 부분만
-      };
-      img.onerror = reject;
-      img.src = reader.result;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 function showCreateView() {
   document.getElementById("main-view").style.display = "none";
   document.getElementById("create-view").style.display = "block";
@@ -181,7 +152,6 @@ async function loadMain() {
   }
   showMainView();
   renderProfile(document.getElementById("my-profile"), res.profile);
-  document.getElementById("photo-upload-section").style.display = res.profile.photo ? "none" : "block";
 
   document.getElementById("qrcode").innerHTML = "";
   const scanUrl = `${location.origin}${location.pathname}?scan=${encodeURIComponent(empId)}`;
@@ -225,11 +195,12 @@ async function handleScannedId(scannedId) {
     document.getElementById("profile-modal").style.display = "flex";
     const container = document.getElementById("modal-profile");
     renderProfile(container, res.profile);
-    // 이 스캔이 "내 생애 첫 스캔"이었던 경우에만, 몇 번째로 네트워크 활동을 시작했는지 축하 배너로 보여줍니다.
+    // 지정된 순번(예: 10번째)의 첫 스캔 당첨자에게만 축하 배너가 뜹니다. (다른 사람들에게는 보이지 않음)
     if (res.firstScanRank) {
       container.insertAdjacentHTML("afterbegin", `
         <div class="notice success" style="width:100%; margin-bottom:12px; text-align:center; font-weight:700;">
-          🎉 ${res.firstScanRank}번째로 네트워크 활동을 시작하셨어요!
+          🎉 ${res.firstScanRank}번째 참가자 당첨을 축하드립니다!<br>
+          <span style="font-weight:500; font-size:12.5px;">안내데스크(운영진)에 문의해주세요.</span>
         </div>
       `);
     }
@@ -338,30 +309,6 @@ document.getElementById("btn-open-scanner").addEventListener("click", () => {
 document.getElementById("btn-close-scanner").addEventListener("click", () => {
   if (html5QrCode) html5QrCode.stop().catch(()=>{});
   document.getElementById("scanner-view").style.display = "none";
-});
-
-document.getElementById("btn-add-photo").addEventListener("click", () => {
-  document.getElementById("photo-input").click();
-});
-
-document.getElementById("photo-input").addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const btn = document.getElementById("btn-add-photo");
-  btn.disabled = true; btn.textContent = "업로드 중...";
-  try {
-    const base64 = await resizeImageToBase64(file, 640, 0.75);
-    const res = await API.uploadPhoto({ empId: myEmpId(), filename: file.name, mimeType: "image/jpeg", dataBase64: base64 });
-    if (res.ok) {
-      loadMain();
-    } else {
-      alert(res.message || "사진 업로드에 실패했습니다.");
-    }
-  } catch (err) {
-    alert("사진 처리 중 오류가 발생했습니다.");
-  } finally {
-    btn.disabled = false; btn.textContent = "📷 사진 등록하기";
-  }
 });
 
 // 초기 진입 처리

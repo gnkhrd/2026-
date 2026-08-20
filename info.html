@@ -79,7 +79,7 @@
     </div>
 
     <div class="section-title">
-      <span>🍚 중식</span>
+      <span>🍚 중식/석식</span>
     </div>
     <div class="card" id="meal-lunch-box" style="padding:14px; text-align:center;">
       <div class="empty">이미지가 아직 등록되지 않았습니다.</div>
@@ -121,13 +121,27 @@ document.getElementById("info-tabs").addEventListener("click", (e) => {
 });
 
 /* ---------- 내 방 찾기: 출석체크 때 저장된 사번/성명을 자동으로 사용 ---------- */
-function renderMyRoomBox(match, rosterHit, empId, name) {
+// 같은 방에 배정된 사람들 중, 스프레드시트에서 가장 위에 있는(=먼저 등록된) 사람이 방키를
+// 수령하기로 되어 있으므로, 방배정표 원래 순서(list) 그대로에서 해당 방의 첫 번째 사람을 찾습니다.
+function findKeyHolder(list, room) {
+  const r = String(room || "").trim();
+  if (!r) return null;
+  return list.find(row => String(row.room || "").trim() === r) || null;
+}
+
+function keyHolderLine_(keyHolder, person) {
+  if (!keyHolder || !person || !person.room) return "";
+  const mine = String(keyHolder.empId) === String(person.empId);
+  return `<br>방키 수령직원: <b>${keyHolder.name}</b>${mine ? " (본인)" : ""}`;
+}
+
+function renderMyRoomBox(match, rosterHit, empId, name, keyHolder) {
   const box = document.getElementById("room-my-box");
   if (match) {
     box.innerHTML = `
       <div class="notice success">
         <b>${match.name}</b>님 (${match.empId}) · ${match.org || ""}<br>
-        배정된 방: <b>${match.room || "미배정"}</b>
+        배정된 방: <b>${match.room || "미배정"}</b>${keyHolderLine_(keyHolder, match)}
       </div>
       <div style="font-size:12px; color:var(--text-faint); margin-top:6px;">출석체크 정보로 자동 확인되었습니다.</div>
     `;
@@ -165,14 +179,15 @@ function renderMyRoomBox(match, rosterHit, empId, name) {
     const m = res.list.find(r => String(r.empId).trim() === eid && String(r.name).trim() === nm);
     if (!m && !hit) { el.innerHTML = '<div class="notice info">별도로 배정된 방이 없습니다. 현장 안내데스크에서 확인해주세요.</div>'; return; }
     if (!m) { el.innerHTML = '<div class="notice error">명단에서 사번/성명을 찾을 수 없습니다. 다시 확인해주세요.</div>'; return; }
-    el.innerHTML = `<div class="notice success"><b>${m.name}</b>님 (${m.empId}) · ${m.org || ""}<br>배정된 방: <b>${m.room || "미배정"}</b></div>`;
+    const keyHolder = findKeyHolder(res.list, m.room);
+    el.innerHTML = `<div class="notice success"><b>${m.name}</b>님 (${m.empId}) · ${m.org || ""}<br>배정된 방: <b>${m.room || "미배정"}</b>${keyHolderLine_(keyHolder, m)}</div>`;
   });
 }
 
 async function loadMyRoom() {
   const empId = myEmpId();
   const name = myName();
-  if (!empId || !name) { renderMyRoomBox(null, null, "", ""); return; }
+  if (!empId || !name) { renderMyRoomBox(null, null, "", "", null); return; }
   const res = await API.getRoomAssignment();
   if (!res.ok) {
     document.getElementById("room-my-box").innerHTML = `<div class="notice error">${res.message || "조회 중 오류가 발생했습니다."}</div>`;
@@ -180,7 +195,8 @@ async function loadMyRoom() {
   }
   const rosterHit = res.list.find(r => String(r.name).trim() === name);
   const match = res.list.find(r => String(r.empId).trim() === empId && String(r.name).trim() === name);
-  renderMyRoomBox(match, rosterHit, empId, name);
+  const keyHolder = match ? findKeyHolder(res.list, match.room) : null;
+  renderMyRoomBox(match, rosterHit, empId, name, keyHolder);
 }
 
 /* ---------- 전체 방배정표: 기본 목록 노출 없이 검색 결과만 표시 (650명 스크롤 부담 방지) ---------- */
@@ -258,7 +274,7 @@ function loadVenueMap() {
   `;
 }
 
-/* ---------- 식사장소: 조식(이미지 1장) + 중식(이미지 1장 + 하단 좌/우 권역 문구) ---------- */
+/* ---------- 식사장소: 조식(이미지 1장) + 중식/석식(이미지 1장 + 하단 좌/우 권역 문구, 중식·석식 공통) ---------- */
 function renderMealImageBox(elId, imageValue) {
   const box = document.getElementById(elId);
   const src = driveImageUrl(imageValue);
@@ -279,7 +295,7 @@ function renderLunchBox() {
       <div style="font-size:30px; font-weight:800; color:var(--text-dim); line-height:1.2; overflow-wrap:break-word; word-break:keep-all;">${right ? `우: ${right}` : ""}</div>
     </div>
   ` : "";
-  box.innerHTML = `<img src="${src}" alt="중식 장소" style="max-width:100%; border-radius:12px;">${captionRow}`;
+  box.innerHTML = `<img src="${src}" alt="중식/석식 장소" style="max-width:100%; border-radius:12px;">${captionRow}`;
 }
 
 function loadMealPlaceImages() {

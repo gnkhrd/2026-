@@ -30,7 +30,8 @@ window.CONFIG = {
   // 파일ID 또는 전체 링크를 여기 붙여넣으세요. 비워두면 "이미지 준비 중" 안내만 표시됩니다.
   VENUE_MAP_IMAGE: "https://drive.google.com/file/d/1wDO1ilxtzZPZ4XRUMpZTaU1eDdzCpvO9/view?usp=sharing",
 
-  // 기타안내 > 식사장소 탭: 조식은 이미지 1장. 중식도 이미지 1장이며, 그 아래에 좌/우 권역 문구만 나뉘어 표시됩니다.
+  // 기타안내 > 식사장소 탭: 조식은 이미지 1장. "중식/석식"은 중식과 석식이 같은 장소라는 전제로 이미지 1장을
+  // 공통으로 사용하며, 그 아래에 좌/우 권역 문구만 나뉘어 표시됩니다.
   // 이미지는 VENUE_MAP_IMAGE와 동일한 방식(구글드라이브 링크/파일ID)으로 등록하세요.
   MEALPLACE_BREAKFAST_IMAGE: "https://drive.google.com/file/d/1xdpMJy-EF3SKIcIGao0FTLwLx4oA-Obb/view?usp=sharing",
   MEALPLACE_LUNCH_IMAGE: "https://drive.google.com/file/d/1Eqy8Kb9i6Yg8IcWTWw_D40dAZ1tE8WoS/view?usp=sharing",
