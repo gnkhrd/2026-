@@ -211,10 +211,10 @@ body{
 
 /* 방배정표 "전체 명단 보기" 토글 안의 표 — 방번호 1열 + 이름 3열을 한 세트로, 두 세트를 나란히 표시 */
 .room-full-table-wrap{ overflow-x:auto; }
-.room-full-table{ width:100%; min-width:520px; border-collapse:collapse; font-size:12.5px; }
+.room-full-table{ width:100%; min-width:760px; border-collapse:collapse; font-size:12.5px; }
 .room-full-table th{ text-align:left; padding:8px 6px; font-size:11.5px; color:var(--text-faint); border-bottom:2px solid var(--border); white-space:nowrap; }
 .room-full-table td{ padding:7px 6px; border-bottom:1px solid var(--border); white-space:nowrap; }
-.room-full-table td:first-child, .room-full-table td:nth-child(5){ font-weight:700; color:var(--accent-dark); }
+.room-full-table td:first-child, .room-full-table td:nth-child(6){ font-weight:700; color:var(--accent-dark); }
 .room-full-table tr:last-child td{ border-bottom:none; }
 
 .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
@@ -529,6 +529,17 @@ body{
 .ci-fill-base{ opacity:.16; filter:grayscale(1); }
 .ci-fill-clip{ position:absolute; top:0; left:0; height:100%; width:0%; overflow:hidden; transition:width .6s ease; }
 .ci-fill-clip .ci-fill-img{ height:100%; width:auto; }
+
+/* 출석체크: 체크인할 때마다 점(동료 한 명)이 하나씩 쌓이는 "모여드는 동료들" 그리드 —
+   전체 인원/퍼센트 숫자 없이, 오직 "점점 많아지고 있다"는 느낌만 전달합니다. */
+.crowd-caption{ text-align:center; font-size:12.5px; font-weight:700; color:var(--text-dim); margin:18px 0 12px; }
+.crowd-grid{ display:flex; flex-wrap:wrap; gap:7px; justify-content:center; min-height:16px; }
+.crowd-dot{
+  width:14px; height:14px; border-radius:50%; flex-shrink:0;
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  animation: crowdPop .35s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes crowdPop{ from{ transform:scale(.2); opacity:0; } to{ transform:scale(1); opacity:1; } }
 
 .empty{ text-align:center; color:var(--text-faint); font-size:13px; padding:24px 0; }
 

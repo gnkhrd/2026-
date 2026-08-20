@@ -227,12 +227,13 @@ function renderFullRoomList(list) {
   const groups = groupByRoom_(list);
   if (!groups.length) { wrap.innerHTML = '<div class="empty">등록된 방배정 정보가 없습니다.</div>'; return; }
 
+  // 이름 칸은 4개까지는 쉼표 없이 각자 한 칸씩 쓰고, 5명이 넘는 경우에만 마지막 칸에 나머지를 쉼표로 묶습니다.
   const cellsOf = (g) => {
-    if (!g) return "<td></td><td></td><td></td><td></td>";
-    const shown = g.names.slice(0, 3);
-    if (g.names.length > 3) shown[2] = g.names.slice(2).join(", ");
-    while (shown.length < 3) shown.push("");
-    return `<td>${g.room}</td><td>${shown[0] || ""}</td><td>${shown[1] || ""}</td><td>${shown[2] || ""}</td>`;
+    if (!g) return "<td></td><td></td><td></td><td></td><td></td>";
+    const shown = g.names.slice(0, 4);
+    if (g.names.length > 4) shown[3] = g.names.slice(3).join(", ");
+    while (shown.length < 4) shown.push("");
+    return `<td>${g.room}</td><td>${shown[0] || ""}</td><td>${shown[1] || ""}</td><td>${shown[2] || ""}</td><td>${shown[3] || ""}</td>`;
   };
 
   const rows = [];
@@ -244,7 +245,7 @@ function renderFullRoomList(list) {
     <div class="att-table-wrap room-full-table-wrap">
       <table class="att-table room-full-table">
         <thead>
-          <tr><th>방번호</th><th colspan="3">이름</th><th>방번호</th><th colspan="3">이름</th></tr>
+          <tr><th>방번호</th><th colspan="4">이름</th><th>방번호</th><th colspan="4">이름</th></tr>
         </thead>
         <tbody>${rows.join("")}</tbody>
       </table>

@@ -41,8 +41,8 @@
         <img class="ci-fill-img" src="assets/brand/gn-ci-kr.png" alt="">
       </div>
     </div>
-    <div class="gauge-bar" style="margin-top:18px;"><div class="gauge-fill" id="gauge-fill" style="width:0%"></div></div>
-    <div class="gauge-text" id="gauge-text">0 / 0명</div>
+    <div class="crowd-caption">지금 이 순간, 정책연수에 모인 동료들</div>
+    <div class="crowd-grid" id="crowd-grid"></div>
   </div>
 </div>
 
@@ -51,15 +51,31 @@
 <script src="assets/api.js"></script>
 <script src="assets/util.js"></script>
 <script>
-// 권역/직급별 세부 통계 없이, "지금 몇 명이 모였는지"만 보여줍니다:
-// (1) GN CI 로고를 출석 비율만큼 색이 채워지도록, (2) 그 아래 진행률 바 + 인원수.
+// 권역/직급별 세부 통계, 전체 인원수, 퍼센트 같은 숫자는 전혀 보여주지 않습니다 — 목적은 딱 하나,
+// "출석체크가 진행될수록 정말 많은 동료가 모이고 있다"는 느낌 그 자체를 보여주는 것입니다.
+// (1) GN CI 로고가 은은하게 색칠되어 채워지고, (2) 체크인할 때마다 작은 점(동료 한 명)이 하나씩
+//     쌓여서, 페이지를 열어둔 채로도 점들이 계속 늘어나는 걸 실시간으로 볼 수 있습니다.
+let crowdDotsRendered = 0;
+
+function growCrowd(count) {
+  const grid = document.getElementById("crowd-grid");
+  if (count < crowdDotsRendered) { grid.innerHTML = ""; crowdDotsRendered = 0; } // 방어적 처리(보통 발생하지 않음)
+  const toAdd = count - crowdDotsRendered;
+  for (let i = 0; i < toAdd; i++) {
+    const dot = document.createElement("div");
+    dot.className = "crowd-dot";
+    grid.appendChild(dot);
+  }
+  crowdDotsRendered = count;
+}
+
 async function refreshVisuals(count) {
+  // CI 로고 채움 정도는 전체 명단 대비 비율을 내부적으로만 사용합니다(숫자는 화면에 노출하지 않음).
   const rc = await API.getRosterCount();
   const total = rc.ok ? rc.count : 0;
   const pct = total ? Math.min(100, Math.round((count / total) * 100)) : 0;
   document.getElementById("ci-fill-clip").style.width = pct + "%";
-  document.getElementById("gauge-fill").style.width = pct + "%";
-  document.getElementById("gauge-text").textContent = `${count} / ${total || "?"}명 (${pct}%)`;
+  growCrowd(count);
 }
 
 async function refreshList() {
