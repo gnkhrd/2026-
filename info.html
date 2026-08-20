@@ -12,7 +12,7 @@
     <a class="back" href="index.html">‹</a>
     <div>
       <h1>기타 안내</h1>
-      <div class="sub">자리배치표 · 방배정표 · 식사장소 · 총장님식사조 · 설문조사</div>
+      <div class="sub">자리배치표 · 방배정표 · 식사장소 · 설문조사</div>
     </div>
   </div>
 
@@ -20,7 +20,6 @@
     <button data-tab="seating">자리배치표</button>
     <button data-tab="room">방배정표</button>
     <button data-tab="mealplace">식사장소</button>
-    <button data-tab="mealgroups">총장님식사조</button>
     <button data-tab="survey">설문조사</button>
   </div>
 
@@ -50,22 +49,18 @@
     </div>
 
     <div class="section-title">
-      <span>전체 방배정표 검색</span>
-    </div>
-    <div class="card" style="padding:12px 14px;">
-      <div class="field" style="margin-bottom:0;">
-        <input type="text" id="room-filter" placeholder="🔍 사번 · 성명 · 방배정으로 검색">
-      </div>
-      <div style="font-size:12px; color:var(--text-faint); margin-top:8px;">검색방법: 사번, 성명, 방 배정(예: 플렉스타워 516호)으로 검색</div>
-    </div>
-    <div id="room-search-result"></div>
-
-    <div class="section-title">
       <span>🗺️ 연수원 지도</span>
     </div>
     <div class="card" id="venue-map-box" style="padding:14px; text-align:center;">
       <div class="empty">지도 이미지가 아직 등록되지 않았습니다.</div>
     </div>
+
+    <details class="card" id="room-full-list-toggle" style="padding:14px;">
+      <summary style="cursor:pointer; font-weight:700; font-size:14px;">📋 전체 방배정 명단 보기</summary>
+      <div id="room-full-list-body" style="margin-top:12px;">
+        <div class="empty">눌러서 불러오세요.</div>
+      </div>
+    </details>
   </div>
 
   <!-- ============ 탭 2: 식사장소 ============ -->
@@ -87,17 +82,7 @@
 
   </div>
 
-  <!-- ============ 탭 3: 총장님식사조 ============ -->
-  <div class="tab-panel" id="tab-mealgroups">
-    <div class="section-title">
-      <span>🍽️ 총장님식사조 (사무총장 동행 식사 일정)</span>
-    </div>
-    <div id="meal-groups">
-      <div class="card"><div class="empty">불러오는 중...</div></div>
-    </div>
-  </div>
-
-  <!-- ============ 탭 4: 설문조사 ============ -->
+  <!-- ============ 탭 3: 설문조사 ============ -->
   <div class="tab-panel" id="tab-survey">
     <div class="section-title">
       <span>🗳️ 설문조사</span>
@@ -135,13 +120,28 @@ function keyHolderLine_(keyHolder, person) {
   return `<br>방키 수령직원: <b>${keyHolder.name}</b>${mine ? " (본인)" : ""}`;
 }
 
-function renderMyRoomBox(match, rosterHit, empId, name, keyHolder) {
+// 같은 방에 배정된 다른 사람들 이름 목록 (본인 제외)
+function roommatesOf_(list, person) {
+  const r = String(person.room || "").trim();
+  if (!r) return [];
+  return list.filter(row => String(row.room || "").trim() === r && String(row.empId) !== String(person.empId));
+}
+
+function roommatesLine_(list, person) {
+  if (!person || !person.room) return "";
+  const mates = roommatesOf_(list, person);
+  if (!mates.length) return "";
+  return `<br>함께 지내는 직원: <b>${mates.map(m => m.name).join(", ")}</b>`;
+}
+
+function renderMyRoomBox(match, rosterHit, empId, name, list) {
   const box = document.getElementById("room-my-box");
   if (match) {
+    const keyHolder = findKeyHolder(list, match.room);
     box.innerHTML = `
       <div class="notice success">
         <b>${match.name}</b>님 (${match.empId}) · ${match.org || ""}<br>
-        배정된 방: <b>${match.room || "미배정"}</b>${keyHolderLine_(keyHolder, match)}
+        배정된 방: <b>${match.room || "미배정"}</b>${roommatesLine_(list, match)}${keyHolderLine_(keyHolder, match)}
       </div>
       <div style="font-size:12px; color:var(--text-faint); margin-top:6px;">출석체크 정보로 자동 확인되었습니다.</div>
     `;
@@ -180,71 +180,85 @@ function renderMyRoomBox(match, rosterHit, empId, name, keyHolder) {
     if (!m && !hit) { el.innerHTML = '<div class="notice info">별도로 배정된 방이 없습니다. 현장 안내데스크에서 확인해주세요.</div>'; return; }
     if (!m) { el.innerHTML = '<div class="notice error">명단에서 사번/성명을 찾을 수 없습니다. 다시 확인해주세요.</div>'; return; }
     const keyHolder = findKeyHolder(res.list, m.room);
-    el.innerHTML = `<div class="notice success"><b>${m.name}</b>님 (${m.empId}) · ${m.org || ""}<br>배정된 방: <b>${m.room || "미배정"}</b>${keyHolderLine_(keyHolder, m)}</div>`;
+    el.innerHTML = `<div class="notice success"><b>${m.name}</b>님 (${m.empId}) · ${m.org || ""}<br>배정된 방: <b>${m.room || "미배정"}</b>${roommatesLine_(res.list, m)}${keyHolderLine_(keyHolder, m)}</div>`;
   });
+}
+
+// 방배정 명단은 "내 방 찾기"와 "전체 명단 보기" 둘 다에서 쓰이므로, 한 번만 받아서 재사용합니다.
+let ROOM_ALL = null;
+
+async function fetchRoomAssignment_() {
+  if (ROOM_ALL !== null) return ROOM_ALL;
+  const res = await API.getRoomAssignment();
+  ROOM_ALL = res.ok ? res.list : [];
+  return ROOM_ALL;
 }
 
 async function loadMyRoom() {
   const empId = myEmpId();
   const name = myName();
-  if (!empId || !name) { renderMyRoomBox(null, null, "", "", null); return; }
-  const res = await API.getRoomAssignment();
-  if (!res.ok) {
-    document.getElementById("room-my-box").innerHTML = `<div class="notice error">${res.message || "조회 중 오류가 발생했습니다."}</div>`;
+  if (!empId || !name) { renderMyRoomBox(null, null, "", "", []); return; }
+  const list = await fetchRoomAssignment_();
+  if (!list) {
+    document.getElementById("room-my-box").innerHTML = '<div class="notice error">조회 중 오류가 발생했습니다.</div>';
     return;
   }
-  const rosterHit = res.list.find(r => String(r.name).trim() === name);
-  const match = res.list.find(r => String(r.empId).trim() === empId && String(r.name).trim() === name);
-  const keyHolder = match ? findKeyHolder(res.list, match.room) : null;
-  renderMyRoomBox(match, rosterHit, empId, name, keyHolder);
+  const rosterHit = list.find(r => String(r.name).trim() === name);
+  const match = list.find(r => String(r.empId).trim() === empId && String(r.name).trim() === name);
+  renderMyRoomBox(match, rosterHit, empId, name, list);
 }
 
-/* ---------- 전체 방배정표: 기본 목록 노출 없이 검색 결과만 표시 (650명 스크롤 부담 방지) ---------- */
-let ROOM_ALL = null;
+/* ---------- 전체 방배정 명단: 방번호별로 묶어서 2개씩 나란히 표시 (토글을 열 때만 불러옴) ---------- */
+function groupByRoom_(list) {
+  const map = {};
+  const order = [];
+  list.forEach(r => {
+    const room = String(r.room || "").trim();
+    if (!room) return; // 미배정 인원은 명단에서 제외
+    if (!map[room]) { map[room] = []; order.push(room); }
+    map[room].push(r.name);
+  });
+  order.sort((a, b) => a.localeCompare(b, "ko", { numeric: true }));
+  return order.map(room => ({ room, names: map[room] }));
+}
 
-function renderRoomSearchResult(list, query) {
-  const wrap = document.getElementById("room-search-result");
-  if (!query) { wrap.innerHTML = ""; return; }
-  if (!list.length) { wrap.innerHTML = '<div class="card"><div class="empty">검색 결과가 없습니다.</div></div>'; return; }
+function renderFullRoomList(list) {
+  const wrap = document.getElementById("room-full-list-body");
+  const groups = groupByRoom_(list);
+  if (!groups.length) { wrap.innerHTML = '<div class="empty">등록된 방배정 정보가 없습니다.</div>'; return; }
+
+  const cellsOf = (g) => {
+    if (!g) return "<td></td><td></td><td></td><td></td>";
+    const shown = g.names.slice(0, 3);
+    if (g.names.length > 3) shown[2] = g.names.slice(2).join(", ");
+    while (shown.length < 3) shown.push("");
+    return `<td>${g.room}</td><td>${shown[0] || ""}</td><td>${shown[1] || ""}</td><td>${shown[2] || ""}</td>`;
+  };
+
+  const rows = [];
+  for (let i = 0; i < groups.length; i += 2) {
+    rows.push(`<tr>${cellsOf(groups[i])}${cellsOf(groups[i + 1])}</tr>`);
+  }
+
   wrap.innerHTML = `
-    <div class="card mobile-only" style="padding:6px 14px;">
-      ${list.map(r => `
-        <div class="list-item">
-          <div class="avatar">${initials(r.name)}</div>
-          <div>
-            <div class="name">${r.name}</div>
-            <div class="meta">${r.org || ""}</div>
-          </div>
-          <div class="time">${r.room || ""}</div>
-        </div>
-      `).join("")}
-    </div>
-    <div class="card desktop-only" style="padding:14px;">
-      <div class="att-table-wrap">
-        <table class="att-table">
-          <thead><tr><th style="width:56px;">번호</th><th>성명</th><th>소속</th><th style="width:140px;">방 배정</th></tr></thead>
-          <tbody>
-            ${list.map((r, i) => `<tr><td>${i + 1}</td><td>${r.name}</td><td>${r.org || ""}</td><td>${r.room || ""}</td></tr>`).join("")}
-          </tbody>
-        </table>
-      </div>
+    <div class="att-table-wrap room-full-table-wrap">
+      <table class="att-table room-full-table">
+        <thead>
+          <tr><th>방번호</th><th colspan="3">이름</th><th>방번호</th><th colspan="3">이름</th></tr>
+        </thead>
+        <tbody>${rows.join("")}</tbody>
+      </table>
     </div>
   `;
 }
 
-document.getElementById("room-filter").addEventListener("input", async (e) => {
-  const q = e.target.value.trim().toLowerCase();
-  if (!q) { renderRoomSearchResult([], ""); return; }
-  if (ROOM_ALL === null) {
-    const res = await API.getRoomAssignment();
-    ROOM_ALL = res.ok ? res.list : [];
-  }
-  const filtered = ROOM_ALL.filter(r =>
-    String(r.name).toLowerCase().includes(q) ||
-    String(r.empId).toLowerCase().includes(q) ||
-    String(r.room || "").toLowerCase().includes(q)
-  );
-  renderRoomSearchResult(filtered, q);
+let roomFullListLoaded = false;
+document.getElementById("room-full-list-toggle").addEventListener("toggle", async (e) => {
+  if (!e.target.open || roomFullListLoaded) return;
+  roomFullListLoaded = true;
+  document.getElementById("room-full-list-body").innerHTML = '<div class="empty">불러오는 중...</div>';
+  const list = await fetchRoomAssignment_();
+  renderFullRoomList(list);
 });
 
 /* ---------- 자리배치표 이미지 ---------- */
@@ -303,42 +317,6 @@ function loadMealPlaceImages() {
   renderLunchBox();
 }
 
-/* ---------- 총장님식사조 ---------- */
-function mealDayLabel(dateStr, idx) {
-  const d = new Date(normDate(dateStr) + "T00:00:00");
-  if (isNaN(d.getTime())) return dateStr;
-  return `${idx + 1}일차 (${d.getMonth() + 1}/${d.getDate()})`;
-}
-
-async function loadMealGroups() {
-  const wrap = document.getElementById("meal-groups");
-  const res = await API.getMealGroups();
-  const list = res.ok ? res.list : [];
-  if (!list.length) {
-    wrap.innerHTML = '<div class="card"><div class="empty">등록된 식사조 일정이 없습니다.</div></div>';
-    return;
-  }
-  const dates = [...new Set(list.map(r => normDate(r.date)))].filter(Boolean).sort();
-  wrap.innerHTML = dates.map((d, i) => {
-    const rows = list.filter(r => normDate(r.date) === d);
-    const body = rows.map(r => `
-      <details class="card" style="margin-bottom:8px; padding:12px 14px;">
-        <summary style="cursor:pointer; font-weight:700; font-size:14px;">
-          ${r.meal || ""} · ${r.target || ""} <span style="color:var(--text-faint); font-weight:400;">(${r.count || (r.members ? r.members.split(",").length + "명" : "")})</span>
-        </summary>
-        <div style="margin-top:8px; font-size:13px; color:var(--text-dim);">
-          ${r.menu ? `<div style="margin-bottom:6px;">메뉴: ${r.menu}</div>` : ""}
-          <div>${(r.members || "").split(",").map(n => n.trim()).filter(Boolean).join(", ")}</div>
-        </div>
-      </details>
-    `).join("");
-    return `
-      <div class="section-title" style="margin-top:4px;"><span>${mealDayLabel(d, i)}</span></div>
-      ${body}
-    `;
-  }).join("");
-}
-
 /* ---------- 설문조사: 구글폼 링크, 지정 시각부터 노출(상시오픈) ---------- */
 function isSurveyTabOpen() {
   const cfg = window.CONFIG.SURVEY_TAB_OPEN_AT;
@@ -373,7 +351,6 @@ loadSeatingChart();
 loadMyRoom();
 loadVenueMap();
 loadMealPlaceImages();
-loadMealGroups();
 loadSurveyTab();
 </script>
 </body>

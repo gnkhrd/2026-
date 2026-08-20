@@ -427,7 +427,7 @@
         const list = db.communityPosters.map(row => {
           const id = String(row.id);
           return {
-            id, org: row.org || "", title: row.title || "", imageUrl: row.imageUrl || "",
+            id, org: row.org || "", title: row.title || "", imageUrl: row.imageUrl || "", category: row.category || "",
             likeCount: countById[id] || 0, likedByMe: likedByMeSet.has(id)
           };
         });

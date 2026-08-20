@@ -90,8 +90,9 @@ window.MOCK_SEED = {
   ],
   // 공동체 활동 포스터 갤러리 테스트용 샘플 (실제로는 CommunityPosters 시트에 담당자가 직접 입력)
   communityPosters: [
-    { id: "1", org: "충남지부", title: "우리 동네 아동권리 지도", imageUrl: "https://placehold.co/400x520/89A230/FFFFFF?text=충남지부" },
-    { id: "2", org: "경남지부", title: "AI와 함께 그린 아동행복", imageUrl: "https://placehold.co/400x520/6E8226/FFFFFF?text=경남지부" },
-    { id: "3", org: "광주지부", title: "공동체가 만드는 변화", imageUrl: "https://placehold.co/400x520/685A55/FFFFFF?text=광주지부" }
+    { id: "1", org: "충남지부", title: "우리 동네 아동권리 지도", imageUrl: "https://placehold.co/400x520/89A230/FFFFFF?text=충남지부", category: "1조" },
+    { id: "2", org: "경남지부", title: "AI와 함께 그린 아동행복", imageUrl: "https://placehold.co/400x520/6E8226/FFFFFF?text=경남지부", category: "2조" },
+    { id: "3", org: "광주지부", title: "공동체가 만드는 변화", imageUrl: "https://placehold.co/400x520/685A55/FFFFFF?text=광주지부", category: "3조" },
+    { id: "4", org: "경기중남지부", title: "우리가 그리는 내일", imageUrl: "https://placehold.co/400x520/B9822C/FFFFFF?text=경기중남지부", category: "4조" }
   ],
 };

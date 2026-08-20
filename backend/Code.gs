@@ -47,10 +47,11 @@ const SHEET_NAMES = {
   EVENT_WINNERS: "EventWinners", // 이 시트도 직접 만들 필요 없이 자동으로 생성됩니다.
                             // (NETWORK_EVENT_TARGETS에 지정한 순번의 당첨자가 나올 때마다 한 줄씩 자동 기록됩니다:
                             //  rank, empId, name, org, time)
-  COMMUNITY_POSTERS: "CommunityPosters", // 컬럼: id, org, title, imageUrl
+  COMMUNITY_POSTERS: "CommunityPosters", // 컬럼: id, org, title, imageUrl, category
                             // (공동체 활동 포스터 갤러리용 — 담당자가 직접 입력합니다. id는 1,2,3... 처럼 행마다 겹치지 않는 값이면
                             //  충분합니다 (좋아요 기록과 매칭하는 용도). imageUrl은 구글드라이브 공유링크를 그대로 붙여넣어도
-                            //  서버에서 자동으로 화면에 보이는 형식으로 변환합니다.)
+                            //  서버에서 자동으로 화면에 보이는 형식으로 변환합니다. category는 화면에 탭으로 나눠 보여줄
+                            //  분류명(예: 1조/2조/3조/4조)을 자유롭게 적으면 되고, 실제로 적힌 값 종류대로 탭이 자동 생성됩니다.)
   POSTER_LIKES: "PosterLikes" // 이 시트는 직접 만들 필요 없이 자동으로 생성됩니다.
                             // (컬럼: id, empId, time — 누가 어떤 포스터에 좋아요를 눌렀는지 기록. 한 사람당 같은 포스터에는
                             //  한 번만 기록되며, 취소(재클릭)는 지원하지 않습니다.)
@@ -498,6 +499,7 @@ function actionGetCommunityPosters_(p) {
       org: row.org || "",
       title: row.title || "",
       imageUrl: normalizeDriveImageUrl_(row.imageUrl),
+      category: row.category || "",
       likeCount: countById[id] || 0,
       likedByMe: likedByMeSet.has(id)
     };

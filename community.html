@@ -66,6 +66,8 @@
     <button class="btn btn-primary" id="pi-check-btn">확인하기</button>
   </div>
 
+  <div class="info-tabs" id="poster-tabs" style="display:none;"></div>
+
   <div id="poster-grid" class="grid-2">
     <div class="empty">불러오는 중...</div>
   </div>
@@ -76,13 +78,34 @@
 <script src="assets/util.js"></script>
 <script>
 let POSTERS = [];
+let posterCategories = []; // 실제 시트에 입력된 category 값들 (처음 등장한 순서대로) — 이 목록 그대로 탭이 됩니다.
+let activeCategory = null;
 
 function hasIdentity() { return !!(myEmpId() && myName()); }
 
+// category 값 종류대로 탭을 자동 구성합니다. 탭이 2개 미만이면(모두 같은 분류거나, category를
+// 아직 안 채운 경우) 탭 없이 전체를 한 번에 보여줍니다.
+function renderPosterTabs() {
+  const wrap = document.getElementById("poster-tabs");
+  posterCategories = [...new Set(POSTERS.map(p => p.category).filter(Boolean))];
+  if (posterCategories.length < 2) { wrap.style.display = "none"; wrap.innerHTML = ""; return; }
+  if (!activeCategory || !posterCategories.includes(activeCategory)) activeCategory = posterCategories[0];
+  wrap.style.display = "";
+  wrap.innerHTML = posterCategories.map(c => `<button data-cat="${c}" class="${c === activeCategory ? "active" : ""}">${c}</button>`).join("");
+  wrap.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      activeCategory = btn.dataset.cat;
+      wrap.querySelectorAll("button").forEach(b => b.classList.toggle("active", b === btn));
+      renderPosterGrid();
+    });
+  });
+}
+
 function renderPosterGrid() {
   const wrap = document.getElementById("poster-grid");
-  if (!POSTERS.length) { wrap.innerHTML = '<div class="empty">아직 등록된 포스터가 없습니다.</div>'; return; }
-  wrap.innerHTML = POSTERS.map(p => `
+  const shown = posterCategories.length >= 2 ? POSTERS.filter(p => p.category === activeCategory) : POSTERS;
+  if (!shown.length) { wrap.innerHTML = '<div class="empty">아직 등록된 포스터가 없습니다.</div>'; return; }
+  wrap.innerHTML = shown.map(p => `
     <div class="poster-card">
       <img src="${p.imageUrl}" alt="${p.title}" loading="lazy">
       <div class="poster-org">${p.org}</div>
@@ -102,6 +125,7 @@ async function loadPosters() {
   const res = await API.getCommunityPosters(myEmpId());
   if (!res.ok) return;
   POSTERS = res.list;
+  renderPosterTabs();
   renderPosterGrid();
 }
 
