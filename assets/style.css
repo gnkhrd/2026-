@@ -209,6 +209,14 @@ body{
 .section-title{ font-size:13px; font-weight:700; color: var(--text-dim); margin: 6px 0 10px; display:flex; align-items:center; justify-content:space-between; }
 .section-title .count{ color:var(--accent-dark); }
 
+/* 방배정표 "전체 명단 보기" 토글 안의 표 — 방번호 1열 + 이름 3열을 한 세트로, 두 세트를 나란히 표시 */
+.room-full-table-wrap{ overflow-x:auto; }
+.room-full-table{ width:100%; min-width:760px; border-collapse:collapse; font-size:12.5px; }
+.room-full-table th{ text-align:left; padding:8px 6px; font-size:11.5px; color:var(--text-faint); border-bottom:2px solid var(--border); white-space:nowrap; }
+.room-full-table td{ padding:7px 6px; border-bottom:1px solid var(--border); white-space:nowrap; }
+.room-full-table td:first-child, .room-full-table td:nth-child(6){ font-weight:700; color:var(--accent-dark); }
+.room-full-table tr:last-child td{ border-bottom:none; }
+
 .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 /* 식사장소 탭 중식/석식 좌우 이미지 (grid-2와 달리 PC에서도 항상 2열 유지) */
 .mealplace-split{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
@@ -299,6 +307,27 @@ body{
 .doc-list-item .name{ font-size:14px; font-weight:700; }
 .doc-list-item .meta{ font-size:11.5px; color:var(--text-faint); }
 
+/* ---------- 공동체 활동 포스터 갤러리 ---------- */
+.poster-card{
+  background: var(--bg-card); border:1px solid var(--border); border-radius: var(--radius);
+  padding:10px; box-shadow: 0 1px 3px rgba(59,52,44,.05);
+}
+.poster-card img{
+  width:100%; aspect-ratio: 4/5; object-fit:cover; display:block;
+  border-radius: var(--radius-sm); margin-bottom:8px; background: var(--bg-card-2);
+}
+.poster-org{ font-size:11px; color:var(--text-faint); font-weight:700; }
+.poster-title{ font-size:13.5px; font-weight:700; margin:2px 0 10px; line-height:1.4; word-break:keep-all; }
+.poster-like-btn{
+  width:100%; padding:9px 0; border-radius:999px; border:1px solid var(--border);
+  background: var(--bg-card-2); color: var(--text-dim); font-weight:700; font-size:12.5px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+}
+.poster-like-btn.liked{
+  background: rgba(178,58,46,.10); color: var(--danger); border-color: rgba(178,58,46,.28); cursor:default;
+}
+.poster-like-count{ font-weight:800; }
+
 .prose{ font-size:14.5px; line-height:1.75; color: var(--text-dim); }
 .prose h2{ font-size:17px; color:var(--accent-dark); margin: 22px 0 8px; }
 .prose h3{ font-size:15px; color:var(--text); margin: 16px 0 6px; }
@@ -346,6 +375,7 @@ body{
   max-width:100%; max-height:100%;
   transform-origin: center center;
 }
+.drive-viewer-frame{ width:100%; height:100%; border:none; }
 .pdf-viewer-loading{ color:#fff; font-size:13px; }
 .pdf-viewer-error{ color:#fff; font-size:13px; padding:0 24px; text-align:center; line-height:1.6; }
 .pdf-viewer-navzone{ position:absolute; top:0; bottom:0; width:35%; cursor:pointer; }
@@ -413,9 +443,11 @@ body{
 .org-rank-item{ display:flex; align-items:center; gap:12px; padding:12px 4px; border-bottom:1px solid var(--border); }
 .org-rank-item:last-child{ border-bottom:none; }
 .org-rank-item .rank-num{ width:22px; }
-.org-rank-item .org-name{ font-size:14px; font-weight:700; flex:1; }
-.org-rank-item .org-meta{ font-size:11px; color:var(--text-faint); }
-.org-rank-item .score{ margin-left:0; }
+.org-rank-item .org-info{ flex:1; min-width:0; }
+.org-rank-item .org-name{ font-size:14px; font-weight:700; }
+.org-rank-item .org-meta{ font-size:11px; color:var(--text-faint); overflow-wrap:break-word; word-break:keep-all; }
+.org-rank-item .score{ margin-left:auto; flex-shrink:0; text-align:right; font-size:14px; font-weight:800; color:var(--accent-dark); white-space:nowrap; }
+.org-rank-item .score .unit{ font-size:11px; font-weight:600; color:var(--text-faint); margin-left:2px; }
 
 .lb-grid{ display:block; }
 
@@ -432,6 +464,14 @@ body{
 .status-badge.now{ background: rgba(137,162,48,.16); color: var(--accent-dark); border-color: rgba(137,162,48,.32); }
 .status-badge.soon{ background: rgba(185,130,44,.14); color: var(--warning); border-color: rgba(185,130,44,.3); }
 .status-badge.done, .status-badge.off{ background: var(--bg-card-2); color: var(--text-faint); }
+
+/* 현재 진행 중인 일정에 슬라이도/퀴즈쇼 등 실시간 참여 링크가 있을 때만 노출되는 버튼 행 */
+.live-link-row{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+.live-link-btn{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:8px 14px; border-radius:999px; font-size:12.5px; font-weight:700;
+  text-decoration:none; color:#fff;
+}
 
 .session-box{ display:none; }
 
@@ -480,6 +520,26 @@ body{
 .gauge-bar{ width:100%; height:14px; border-radius:999px; background: var(--bg-card-2); overflow:hidden; }
 .gauge-fill{ height:100%; background: linear-gradient(90deg, var(--accent), var(--accent-dark)); border-radius:999px; transition: width .4s ease; }
 .gauge-text{ font-size:12.5px; color: var(--text-faint); margin-top:8px; text-align:right; }
+
+/* 출석체크: GN CI 로고가 출석 비율만큼 색이 채워지는 효과
+   (동일한 로고를 2장 겹쳐서, 아래는 흐리게 깔고 위는 원본 그대로 두되 폭(width)만큼만 잘라 보여줍니다) */
+.ci-fill-card{ text-align:center; }
+.ci-fill-wrap{ position:relative; max-width:280px; margin:0 auto; }
+.ci-fill-img{ display:block; width:100%; height:auto; }
+.ci-fill-base{ opacity:.16; filter:grayscale(1); }
+.ci-fill-clip{ position:absolute; top:0; left:0; height:100%; width:0%; overflow:hidden; transition:width .6s ease; }
+.ci-fill-clip .ci-fill-img{ height:100%; width:auto; }
+
+/* 출석체크: 체크인할 때마다 점(동료 한 명)이 하나씩 쌓이는 "모여드는 동료들" 그리드 —
+   전체 인원/퍼센트 숫자 없이, 오직 "점점 많아지고 있다"는 느낌만 전달합니다. */
+.crowd-caption{ text-align:center; font-size:12.5px; font-weight:700; color:var(--text-dim); margin:18px 0 12px; }
+.crowd-grid{ display:flex; flex-wrap:wrap; gap:7px; justify-content:center; min-height:16px; }
+.crowd-dot{
+  width:14px; height:14px; border-radius:50%; flex-shrink:0;
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  animation: crowdPop .35s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes crowdPop{ from{ transform:scale(.2); opacity:0; } to{ transform:scale(1); opacity:1; } }
 
 .empty{ text-align:center; color:var(--text-faint); font-size:13px; padding:24px 0; }
 

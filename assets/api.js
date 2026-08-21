@@ -8,6 +8,9 @@
   const IS_MOCK = !window.CONFIG.APPS_SCRIPT_URL;
   const LS_KEY = "gn2026_mock_db";
 
+  // MOCK 모드 테스트용 — backend/Code.gs의 NETWORK_EVENT_TARGETS 기본값과 동일 (현재 테스트 기준 10번째만)
+  const NETWORK_EVENT_TARGETS = [10];
+
   function loadDB() {
     let db = null;
     try { db = JSON.parse(localStorage.getItem(LS_KEY)); } catch (e) {}
@@ -19,7 +22,9 @@
         scanlog: (window.MOCK_SEED.scanlog || []).slice(),
         schedule: window.MOCK_SEED.schedule.slice(),
         surveyResponses: [],
-        materialViews: []
+        materialViews: [],
+        communityPosters: (window.MOCK_SEED.communityPosters || []).slice(),
+        posterLikes: []
       };
       saveDB(db);
     }
@@ -327,12 +332,13 @@
         if (scannerId === scannedId) return { ok: false, message: "본인 QR입니다." };
         const db = loadDB();
         const already = db.scanlog.find(s => s.scannerId === scannerId && s.scannedId === scannedId);
-        let firstScanRank = null;
+        let firstScanRank = null; // NETWORK_EVENT_TARGETS에 지정된 순번의 당첨자에게만 값이 채워짐
         if (!already) {
           const isFirstScanForThisPerson = !db.scanlog.some(s => s.scannerId === scannerId);
           db.scanlog.unshift({ scannerId, scannedId, time: new Date().toISOString() });
           if (isFirstScanForThisPerson) {
-            firstScanRank = new Set(db.scanlog.map(s => s.scannerId)).size;
+            const rank = new Set(db.scanlog.map(s => s.scannerId)).size;
+            if (NETWORK_EVENT_TARGETS.indexOf(rank) !== -1) firstScanRank = rank;
           }
         }
         saveDB(db);
@@ -406,6 +412,47 @@
       return callServer("getBanners", {});
     },
 
+    // ---------- 공동체 활동 포스터 갤러리 + 좋아요 ----------
+    async getCommunityPosters(empId) {
+      if (IS_MOCK) {
+        await delay(150);
+        const db = loadDB();
+        const eid = String(empId || "").trim();
+        const countById = {}, likedByMeSet = new Set();
+        db.posterLikes.forEach(l => {
+          const id = String(l.id);
+          countById[id] = (countById[id] || 0) + 1;
+          if (eid && String(l.empId).trim() === eid) likedByMeSet.add(id);
+        });
+        const list = db.communityPosters.map(row => {
+          const id = String(row.id);
+          return {
+            id, org: row.org || "", title: row.title || "", imageUrl: row.imageUrl || "", category: row.category || "",
+            likeCount: countById[id] || 0, likedByMe: likedByMeSet.has(id)
+          };
+        });
+        return { ok: true, list };
+      }
+      return callServer("getCommunityPosters", { empId: empId || "" });
+    },
+
+    async likePoster({ empId, id }) {
+      if (IS_MOCK) {
+        await delay(150);
+        const db = loadDB();
+        const eid = String(empId || "").trim(), pid = String(id || "").trim();
+        if (!eid) return { ok: false, message: "먼저 사번·성명을 확인해주세요." };
+        if (!pid) return { ok: false, message: "포스터 정보를 찾을 수 없습니다." };
+        const already = db.posterLikes.some(l => String(l.id) === pid && String(l.empId).trim() === eid);
+        if (already) return { ok: false, message: "이미 이 포스터에 좋아요를 누르셨습니다." };
+        db.posterLikes.push({ id: pid, empId: eid, time: new Date().toISOString() });
+        saveDB(db);
+        const likeCount = db.posterLikes.filter(l => String(l.id) === pid).length;
+        return { ok: true, likeCount };
+      }
+      return callServer("likePoster", { empId: empId || "", id: id || "" });
+    },
+
     // 발표자료 열람 기록 (누가 언제 어떤 자료를 열었는지) — 유출 발생 시 추적용
     async logMaterialView({ empId, name, org, materialTitle }) {
       if (IS_MOCK) {
@@ -427,6 +474,19 @@
         return { ok: false, message: "MOCK 모드에서는 실제 파일 미리보기를 지원하지 않습니다. 실제 배포 후 확인해주세요." };
       }
       return callServer("getMaterialFile", { file });
+    },
+
+    // 파일 내용 전체가 아니라, 이 파일에 맞는 구글 임베드 주소만 가볍게 받아옵니다
+    // (구글 슬라이드 원본이면 슬라이드 전용 임베드, 그 외엔 드라이브 미리보기 주소).
+    async getMaterialEmbedUrl({ file }) {
+      if (IS_MOCK) {
+        await delay(100);
+        const m = String(file || "").match(/\/d\/([^/]+)/) || String(file || "").match(/[?&]id=([^&]+)/);
+        const id = m ? m[1] : file;
+        return id ? { ok: true, embedUrl: `https://drive.google.com/file/d/${id}/preview` }
+                   : { ok: false, message: "등록된 파일이 없습니다." };
+      }
+      return callServer("getMaterialEmbedUrl", { file });
     },
 
     // ---------- 방배정표 ----------
