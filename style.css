@@ -313,11 +313,12 @@ body{
   padding:10px; box-shadow: 0 1px 3px rgba(59,52,44,.05);
 }
 .poster-card img{
-  width:100%; aspect-ratio: 4/5; object-fit:cover; display:block;
+  width:100%; aspect-ratio: 4/5; object-fit:contain; display:block;
   border-radius: var(--radius-sm); margin-bottom:8px; background: var(--bg-card-2);
 }
+#poster-tabs button{ line-height:1.3; padding:8px 4px; border-radius:14px; text-align:center; }
 .poster-org{ font-size:11px; color:var(--text-faint); font-weight:700; }
-.poster-title{ font-size:13.5px; font-weight:700; margin:2px 0 10px; line-height:1.4; word-break:keep-all; }
+.poster-title{ font-size:13.5px; font-weight:700; margin:2px 0 10px; line-height:1.4; overflow-wrap:anywhere; }
 .poster-like-btn{
   width:100%; padding:9px 0; border-radius:999px; border:1px solid var(--border);
   background: var(--bg-card-2); color: var(--text-dim); font-weight:700; font-size:12.5px;
