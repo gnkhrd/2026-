@@ -481,6 +481,9 @@ function normalizeDriveImageUrl_(raw) {
 
 function actionGetCommunityPosters_(p) {
   const posters = sheetToObjects_(SHEET_NAMES.COMMUNITY_POSTERS);
+  // PosterLikes는 첫 좋아요가 눌리기 전까지는 시트 자체가 없을 수 있으므로(자동 생성 시트),
+  // 없으면 만들어두고 시작합니다 — 그렇지 않으면 좋아요가 하나도 없는 상태에서 갤러리 조회 자체가 오류로 실패합니다.
+  ensureSheetWithHeaders_(SHEET_NAMES.POSTER_LIKES, ["id", "empId", "time"]);
   const likes = sheetToObjects_(SHEET_NAMES.POSTER_LIKES);
   const empId = String((p && p.empId) || "").trim();
 
