@@ -122,8 +122,18 @@ function renderPosterGrid() {
 }
 
 async function loadPosters() {
+  const wrap = document.getElementById("poster-grid");
   const res = await API.getCommunityPosters(myEmpId());
-  if (!res.ok) return;
+  if (!res.ok) {
+    // 예전에는 실패 시 아무 표시 없이 "불러오는 중..."에 그대로 멈춰있었습니다 — 지금은 무엇이
+    // 잘못됐는지 화면에 그대로 보여주고, 다시 시도할 수 있는 버튼을 함께 둡니다.
+    wrap.innerHTML = `
+      <div class="notice error">${res.message || "포스터를 불러오지 못했습니다."}${res.debug ? `<br><span style="font-size:11px; opacity:.7;">${res.debug}</span>` : ""}</div>
+      <button class="btn btn-outline" id="poster-retry-btn" style="margin-top:8px;">🔄 다시 시도</button>
+    `;
+    document.getElementById("poster-retry-btn").addEventListener("click", loadPosters);
+    return;
+  }
   POSTERS = res.list;
   renderPosterTabs();
   renderPosterGrid();
