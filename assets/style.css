@@ -317,7 +317,7 @@ body{
   border-radius: var(--radius-sm); margin-bottom:8px; background: var(--bg-card-2);
 }
 .poster-org{ font-size:11px; color:var(--text-faint); font-weight:700; }
-.poster-title{ font-size:13.5px; font-weight:700; margin:2px 0 10px; line-height:1.4; word-break:keep-all; }
+.poster-title{ font-size:13.5px; font-weight:700; margin:2px 0 10px; line-height:1.4; overflow-wrap:anywhere; }
 .poster-like-btn{
   width:100%; padding:9px 0; border-radius:999px; border:1px solid var(--border);
   background: var(--bg-card-2); color: var(--text-dim); font-weight:700; font-size:12.5px;

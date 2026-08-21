@@ -101,6 +101,15 @@ function renderPosterTabs() {
   });
 }
 
+// 제목이 한 줄에 너무 길게 이어지면 카드 폭을 벗어나 보였습니다. 자연스러운 줄바꿈(공백 기준)에
+// 맡기지 않고, 공백 포함 13자마다 강제로 줄을 나눠 카드 높이가 일정하게 정렬되도록 합니다.
+function wrapTitle_(text, maxLen) {
+  const s = String(text || "");
+  const lines = [];
+  for (let i = 0; i < s.length; i += maxLen) lines.push(s.slice(i, i + maxLen));
+  return lines.join("<br>");
+}
+
 function renderPosterGrid() {
   const wrap = document.getElementById("poster-grid");
   const shown = posterCategories.length >= 2 ? POSTERS.filter(p => p.category === activeCategory) : POSTERS;
@@ -109,7 +118,7 @@ function renderPosterGrid() {
     <div class="poster-card">
       <img src="${p.imageUrl}" alt="${p.title}" loading="lazy">
       <div class="poster-org">${p.org}</div>
-      <div class="poster-title">${p.title}</div>
+      <div class="poster-title">${wrapTitle_(p.title, 13)}</div>
       <button class="poster-like-btn${p.likedByMe ? " liked" : ""}" data-id="${p.id}" ${p.likedByMe ? "disabled" : ""}>
         <span>${p.likedByMe ? "❤️ 좋아요 완료" : "🤍 좋아요"}</span>
         <span class="poster-like-count">${p.likeCount}</span>
