@@ -306,8 +306,8 @@ function renderLunchBox() {
   const right = c.MEALPLACE_LUNCH_RIGHT_REGIONS;
   const captionRow = (left || right) ? `
     <div class="mealplace-split" style="margin:10px 0 0;">
-      <div style="font-size:30px; font-weight:800; color:var(--text-dim); line-height:1.2; overflow-wrap:break-word; word-break:keep-all;">${left ? `좌: ${left}` : ""}</div>
-      <div style="font-size:30px; font-weight:800; color:var(--text-dim); line-height:1.2; overflow-wrap:break-word; word-break:keep-all;">${right ? `우: ${right}` : ""}</div>
+      <div style="font-size:15px; font-weight:800; color:var(--text-dim); line-height:1.3; overflow-wrap:break-word; word-break:keep-all; text-align:center;">${left ? `좌: ${left}` : ""}</div>
+      <div style="font-size:15px; font-weight:800; color:var(--text-dim); line-height:1.3; overflow-wrap:break-word; word-break:keep-all; text-align:center;">${right ? `우: ${right}` : ""}</div>
     </div>
   ` : "";
   box.innerHTML = `<img src="${src}" alt="중식/석식 장소" style="max-width:100%; border-radius:12px;">${captionRow}`;

@@ -36,7 +36,7 @@
     <div class="card" id="detail-form" style="display:none; margin-top:14px;">
       <div class="field">
         <label>소속</label>
-        <input type="text" id="d-org" placeholder="소속">
+        <input type="text" id="d-org" readonly style="background:var(--bg-card-2); color:var(--text-faint); cursor:not-allowed;">
       </div>
       <div class="field">
         <label>직급</label>
@@ -45,11 +45,11 @@
       <div class="field">
         <label>정책연수에서 나와 동료를 연결해 줄 3가지 키워드 입력</label>
         <div style="font-size:12px; color:var(--text-faint); margin-bottom:6px;">(업무, 관심사, 강점, 역량, 연수 기대감 등)</div>
-        <input type="text" id="d-keywords" placeholder="예: 기획, 등산, 커피">
+        <input type="text" id="d-keywords" placeholder="예: 아보전, 옹호, AI">
       </div>
       <div class="field">
         <label>내가 현장 또는 연수에서 만들고 싶은 변화</label>
-        <textarea id="d-intro" placeholder="예: 지부와 본부가 더 자주 소통하는 문화를 만들고 싶어요"></textarea>
+        <textarea id="d-intro" placeholder="예: 다양한 소속, 직급의 직원들과 소통하고 싶어요"></textarea>
       </div>
       <div id="detail-result"></div>
       <button class="btn btn-primary" id="save-profile-btn">명함 만들기</button>

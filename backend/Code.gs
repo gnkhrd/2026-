@@ -239,7 +239,8 @@ function actionGetOrInitProfile_(p) {
     return {
       ok: true, isNew: false,
       profile: {
-        empId: String(row.empId), name: row.name, org: row.org, role: row.role || "",
+        // 소속은 직원이 임의로 수정하지 못하도록, 저장된 값이 아니라 항상 로스터(Roster) 시트 기준으로 고정합니다.
+        empId: String(row.empId), name: row.name, org: match.org, role: row.role || "",
         keywords: row.keywords || "", intro: row.intro || "", photo: row.photo || ""
       }
     };
@@ -262,7 +263,7 @@ function actionSaveProfile_(p) {
     upsertProfile_({
       empId: p.empId,
       name: p.name,
-      org: p.org || match.org,
+      org: match.org, // 소속은 클라이언트가 보낸 값을 무시하고 항상 로스터 기준으로 고정 저장합니다.
       role: p.role || "",
       keywords: p.keywords || "",
       intro: p.intro || ""
@@ -475,7 +476,10 @@ function normalizeDriveImageUrl_(raw) {
   const url = String(raw || "").trim();
   if (!url) return "";
   const m = url.match(/\/d\/([^/]+)/) || url.match(/[?&]id=([^&]+)/);
-  if (m) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+  // "uc?export=view" 방식은 구글이 종종 이미지 대신 확인 페이지/오류를 돌려줘서
+  // <img> 태그로 바로 불러올 때 깨진 이미지 아이콘이 뜨는 경우가 많습니다.
+  // "thumbnail" 방식이 외부 페이지에서 이미지로 직접 불러올 때 훨씬 안정적입니다.
+  if (m) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1000`;
   return url;
 }
 
