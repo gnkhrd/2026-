@@ -25,7 +25,7 @@ function fmtDateTime(iso) {
 function fmtTimeRange(raw) {
   if (!raw) return "";
   const parts = String(raw).split(/[-~]/).map(s => s.trim()).filter(Boolean);
-  if (parts.length >= 2) return `${parts[0]}<br>~<br>${parts[1]}`;
+  if (parts.length >= 2) return `${parts[0]}~${parts[1]}`;
   return String(raw).trim();
 }
 
