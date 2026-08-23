@@ -35,8 +35,10 @@ window.CONFIG = {
   // 이미지는 VENUE_MAP_IMAGE와 동일한 방식(구글드라이브 링크/파일ID)으로 등록하세요.
   MEALPLACE_BREAKFAST_IMAGE: "https://drive.google.com/file/d/1xdpMJy-EF3SKIcIGao0FTLwLx4oA-Obb/view?usp=sharing",
   MEALPLACE_LUNCH_IMAGE: "https://drive.google.com/file/d/1Eqy8Kb9i6Yg8IcWTWw_D40dAZ1tE8WoS/view?usp=sharing",
-  MEALPLACE_LUNCH_LEFT_REGIONS: "식당A 서인, 경원, 충청, 전북, 영남",
-  MEALPLACE_LUNCH_RIGHT_REGIONS: "식당B 광주전남, 본부",
+  MEALPLACE_LUNCH_LEFT_LABEL: "좌측 · 식당A",
+  MEALPLACE_LUNCH_LEFT_REGIONS: "서인, 경원, 충청, 전북, 영남",
+  MEALPLACE_LUNCH_RIGHT_LABEL: "우측 · 식당B",
+  MEALPLACE_LUNCH_RIGHT_REGIONS: "광주전남, 본부",
 
   // 기타안내 > 자리배치표 탭(가장 앞 탭)에 보여줄 이미지 1장.
   // VENUE_MAP_IMAGE와 동일한 방식(구글드라이브 링크/파일ID)으로 등록하세요.

@@ -221,6 +221,12 @@ body{
 /* 식사장소 탭 중식/석식 좌우 이미지 (grid-2와 달리 PC에서도 항상 2열 유지) */
 .mealplace-split{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
 .mealplace-split img{ max-width:100%; border-radius:12px; }
+.mealplace-side{ text-align:center; }
+.mealplace-label{
+  display:inline-block; background: rgba(137,162,48,.16); color: var(--accent-dark);
+  font-weight:800; font-size:13px; padding:6px 12px; border-radius:8px; margin-bottom:6px;
+}
+.mealplace-regions{ font-size:13.5px; font-weight:700; color: var(--text-dim); line-height:1.5; overflow-wrap:break-word; word-break:keep-all; }
 .banner{
   background: var(--bg-card);
   border:1px solid var(--border);
