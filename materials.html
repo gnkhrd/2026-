@@ -115,12 +115,23 @@ const MATERIAL_SESSIONS = [
   { label: "Session3. AI시대, 시스템화를 통한 조직 혁신", match: /^(주제발표3|사례발표3)/ }
 ];
 
+// "주제발표1) 지역사회 공동체 기반..." 처럼 앞에 붙는 번호표를 따로 떼어내, 번호표 / 나머지 설명
+// 두 문단으로 나눠 보여줍니다. 이런 형식이 아닌 제목은 그대로 한 문단으로 표시합니다.
+function splitMaterialTitle_(title) {
+  const t = String(title || "").trim();
+  const m = t.match(/^((?:주제발표|사례발표)\s*\d+(?:-\d+)?\)?)\s*(.*)$/);
+  if (m && m[2]) return { label: m[1], desc: m[2] };
+  return { label: "", desc: t };
+}
+
 function renderDocCard_(m) {
   const idx = MATERIALS_LIST.indexOf(m);
+  const { label, desc } = splitMaterialTitle_(m.title);
   return `
     <div class="material-card" data-idx="${idx}">
       <div class="material-card-icon">📄</div>
-      <div class="material-card-name">${m.title}</div>
+      ${label ? `<div class="material-card-label">${label}</div>` : ""}
+      <div class="material-card-name">${desc}</div>
       <div class="material-card-meta">${m.speaker || ""}</div>
     </div>
   `;
