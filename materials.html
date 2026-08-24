@@ -51,7 +51,11 @@
     <button class="btn btn-primary" id="materials-retry-btn">🔄 다시 시도</button>
   </div>
 
-  <div class="card" id="doc-list" style="padding:6px 14px; display:none;"></div>
+  <div id="materials-list-wrap" style="display:none;">
+    <div class="info-tabs" id="material-tabs" style="display:none;"></div>
+    <div id="material-session-label"></div>
+    <div class="grid-2" id="doc-list"></div>
+  </div>
 </div>
 
 <!-- 구글드라이브 원본을 그대로 보여주는 뷰어(팝업) — 구글 자체 인프라로 바로 서빙되어 로딩이 빠르고,
@@ -83,7 +87,7 @@ let MATERIALS_LIST = [];
 function hideAllStates() {
   document.getElementById("materials-loading").style.display = "none";
   document.getElementById("materials-error").style.display = "none";
-  document.getElementById("doc-list").style.display = "none";
+  document.getElementById("materials-list-wrap").style.display = "none";
 }
 
 function showLoading() {
@@ -99,7 +103,7 @@ function showErrorState(message) {
 
 function showList() {
   hideAllStates();
-  document.getElementById("doc-list").style.display = "";
+  document.getElementById("materials-list-wrap").style.display = "";
 }
 
 /* ---------- 자료 목록 ---------- */
@@ -111,45 +115,81 @@ const MATERIAL_SESSIONS = [
   { label: "Session3. AI시대, 시스템화를 통한 조직 혁신", match: /^(주제발표3|사례발표3)/ }
 ];
 
-function renderDocItem_(m) {
+function renderDocCard_(m) {
   const idx = MATERIALS_LIST.indexOf(m);
   return `
-    <div class="doc-list-item" data-idx="${idx}" style="cursor:pointer;">
-      <div class="icon">📄</div>
-      <div style="flex:1;">
-        <div class="name">${m.title}</div>
-        <div class="meta">${m.speaker || ""}</div>
-      </div>
-      <div style="color:var(--text-faint);">›</div>
+    <div class="material-card" data-idx="${idx}">
+      <div class="material-card-icon">📄</div>
+      <div class="material-card-name">${m.title}</div>
+      <div class="material-card-meta">${m.speaker || ""}</div>
     </div>
   `;
 }
 
-function renderList() {
-  const wrap = document.getElementById("doc-list");
-  if (!MATERIALS_LIST.length) { wrap.innerHTML = '<div class="empty">등록된 자료가 없습니다.</div>'; return; }
+let materialGroups = [];   // [{ key, label, items }]
+let activeMaterialTab = null;
 
-  const groups = MATERIAL_SESSIONS.map(s => ({
+function buildMaterialGroups_() {
+  const groups = MATERIAL_SESSIONS.map((s, i) => ({
+    key: "s" + i,
     label: s.label,
     items: MATERIALS_LIST.filter(m => s.match.test(String(m.title || "").trim()))
-  }));
+  })).filter(g => g.items.length);
   const groupedSet = new Set(groups.flatMap(g => g.items));
   const others = MATERIALS_LIST.filter(m => !groupedSet.has(m));
+  if (others.length) groups.push({ key: "others", label: "기타 자료", items: others });
+  return groups;
+}
 
-  let html = "";
-  groups.forEach(g => {
-    if (!g.items.length) return;
-    html += `<div class="material-session-label">${g.label}</div>`;
-    html += `<div class="material-session-group">${g.items.map(renderDocItem_).join("")}</div>`;
-  });
-  if (others.length) {
-    html += `<div class="material-session-group">${others.map(renderDocItem_).join("")}</div>`;
+// 세션 탭은 짧게 "Session1"처럼 표시하고, 전체 명칭은 탭 아래 색상 라벨로 따로 보여줍니다
+// (긴 세션명을 탭에 그대로 쓰면 한 줄에 안 들어가기 때문).
+function tabShortLabel_(label, key) {
+  if (key === "others") return "기타";
+  const m = String(label).match(/^Session\d+/);
+  return m ? m[0] : label;
+}
+
+function renderMaterialTabs_() {
+  const wrap = document.getElementById("material-tabs");
+  if (!activeMaterialTab || !materialGroups.some(g => g.key === activeMaterialTab)) {
+    activeMaterialTab = materialGroups.length ? materialGroups[0].key : null;
   }
-  wrap.innerHTML = html;
+  if (materialGroups.length < 2) { wrap.style.display = "none"; wrap.innerHTML = ""; return; }
+  wrap.style.display = "";
+  wrap.innerHTML = materialGroups.map(g => `
+    <button data-key="${g.key}" class="${g.key === activeMaterialTab ? "active" : ""}">${tabShortLabel_(g.label, g.key)}</button>
+  `).join("");
+  wrap.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      activeMaterialTab = btn.dataset.key;
+      wrap.querySelectorAll("button").forEach(b => b.classList.toggle("active", b === btn));
+      renderActiveMaterialGroup_();
+    });
+  });
+}
 
-  wrap.querySelectorAll(".doc-list-item").forEach(el => {
+function renderActiveMaterialGroup_() {
+  const labelBox = document.getElementById("material-session-label");
+  const grid = document.getElementById("doc-list");
+  const group = materialGroups.find(g => g.key === activeMaterialTab) || materialGroups[0];
+  if (!group) { labelBox.innerHTML = ""; grid.innerHTML = '<div class="empty">등록된 자료가 없습니다.</div>'; return; }
+  labelBox.innerHTML = `<div class="material-session-label">${group.label}</div>`;
+  grid.innerHTML = group.items.map(renderDocCard_).join("");
+  grid.querySelectorAll(".material-card").forEach(el => {
     el.addEventListener("click", () => openViewer(MATERIALS_LIST[+el.dataset.idx]));
   });
+}
+
+function renderList() {
+  if (!MATERIALS_LIST.length) {
+    document.getElementById("material-tabs").style.display = "none";
+    document.getElementById("material-session-label").innerHTML = "";
+    document.getElementById("doc-list").innerHTML = '<div class="empty">등록된 자료가 없습니다.</div>';
+    return;
+  }
+  materialGroups = buildMaterialGroups_();
+  renderMaterialTabs_();
+  renderActiveMaterialGroup_();
 }
 
 /* ---------- 구글 뷰어(팝업) ---------- */

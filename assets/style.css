@@ -313,14 +313,22 @@ body{
 .doc-list-item .name{ font-size:14px; font-weight:700; }
 .doc-list-item .meta{ font-size:11.5px; color:var(--text-faint); }
 
-/* 라이브포럼 발표자료: 주제발표/사례발표를 세션 단위로 묶어서 보여주는 라벨 */
+/* 라이브포럼 발표자료: 세션 탭(가로) 아래, 선택된 세션의 전체 명칭을 보여주는 색상 라벨 */
 .material-session-label{
   display:block; background: rgba(137,162,48,.16); color: var(--accent-dark);
   font-weight:800; font-size:13px; padding:9px 12px; border-radius:8px;
-  margin:16px 0 2px;
+  margin:0 0 12px;
 }
-#doc-list .material-session-label:first-child{ margin-top:4px; }
-.material-session-group{ margin-bottom:4px; }
+#material-tabs button{ line-height:1.3; }
+
+/* 라이브포럼 발표자료 카드 — 세션당 자료를 2개씩 나란히(그리드) 배치 */
+.material-card{
+  background: var(--bg-card); border:1px solid var(--border); border-radius: var(--radius);
+  padding:18px 12px; text-align:center; box-shadow: 0 1px 3px rgba(59,52,44,.05); cursor:pointer;
+}
+.material-card-icon{ font-size:26px; margin-bottom:8px; }
+.material-card-name{ font-size:13px; font-weight:700; line-height:1.35; word-break:keep-all; margin-bottom:4px; }
+.material-card-meta{ font-size:11px; color: var(--text-faint); }
 
 /* ---------- 공동체 활동 포스터 갤러리 ---------- */
 .poster-card{
