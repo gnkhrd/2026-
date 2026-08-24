@@ -103,11 +103,18 @@ function showList() {
 }
 
 /* ---------- 자료 목록 ---------- */
-function renderList() {
-  const wrap = document.getElementById("doc-list");
-  if (!MATERIALS_LIST.length) { wrap.innerHTML = '<div class="empty">등록된 자료가 없습니다.</div>'; return; }
-  wrap.innerHTML = MATERIALS_LIST.map((m, i) => `
-    <div class="doc-list-item" data-idx="${i}" style="cursor:pointer;">
+// 주제발표/사례발표 제목이 아래 패턴으로 시작하면 해당 세션으로 자동 묶입니다.
+// (제목 뒤에 어떤 부제가 붙어도 접두어만 맞으면 인식됩니다 — 예: "주제발표1 지역사회 공동체 기반...")
+const MATERIAL_SESSIONS = [
+  { label: "Session1. 지역사회 협력 기반 신사회문제 대응과 제도화", match: /^(주제발표1|사례발표1)/ },
+  { label: "Session2. 임팩트사업의 성과와 사회적 가치 확산", match: /^(주제발표2|사례발표2)/ },
+  { label: "Session3. AI시대, 시스템화를 통한 조직 혁신", match: /^(주제발표3|사례발표3)/ }
+];
+
+function renderDocItem_(m) {
+  const idx = MATERIALS_LIST.indexOf(m);
+  return `
+    <div class="doc-list-item" data-idx="${idx}" style="cursor:pointer;">
       <div class="icon">📄</div>
       <div style="flex:1;">
         <div class="name">${m.title}</div>
@@ -115,7 +122,31 @@ function renderList() {
       </div>
       <div style="color:var(--text-faint);">›</div>
     </div>
-  `).join("");
+  `;
+}
+
+function renderList() {
+  const wrap = document.getElementById("doc-list");
+  if (!MATERIALS_LIST.length) { wrap.innerHTML = '<div class="empty">등록된 자료가 없습니다.</div>'; return; }
+
+  const groups = MATERIAL_SESSIONS.map(s => ({
+    label: s.label,
+    items: MATERIALS_LIST.filter(m => s.match.test(String(m.title || "").trim()))
+  }));
+  const groupedSet = new Set(groups.flatMap(g => g.items));
+  const others = MATERIALS_LIST.filter(m => !groupedSet.has(m));
+
+  let html = "";
+  groups.forEach(g => {
+    if (!g.items.length) return;
+    html += `<div class="material-session-label">${g.label}</div>`;
+    html += `<div class="material-session-group">${g.items.map(renderDocItem_).join("")}</div>`;
+  });
+  if (others.length) {
+    html += `<div class="material-session-group">${others.map(renderDocItem_).join("")}</div>`;
+  }
+  wrap.innerHTML = html;
+
   wrap.querySelectorAll(".doc-list-item").forEach(el => {
     el.addEventListener("click", () => openViewer(MATERIALS_LIST[+el.dataset.idx]));
   });
