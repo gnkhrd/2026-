@@ -119,9 +119,12 @@ function json_(obj) {
 
 function actionCheckIn_(p) {
   const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
+  // 체크인은 12:20~13:00처럼 짧은 시간에 몰릴 수 있어, 락 대기시간을 10초→20초로 넉넉하게 둡니다.
+  // (한 명씩 순서대로 처리되는 구조라 대기시간을 늘려도 데이터 정합성엔 영향이 없고, 몰리는 순간에
+  // "실패"로 끊기는 대신 좀 더 기다렸다가 성공할 여지를 줍니다.)
+  lock.waitLock(20000);
   try {
-    const roster = sheetToObjects_(SHEET_NAMES.ROSTER);
+    const roster = getRosterCached_();
     const match = roster.find(r => String(r.empId) === String(p.empId) && String(r.name).trim() === String(p.name).trim());
     if (!match) return { ok: false, message: "명단에서 사번/성명을 찾을 수 없습니다. 다시 확인해주세요." };
 
@@ -141,10 +144,11 @@ function actionCheckIn_(p) {
   }
 }
 
+// 출석체크 화면이 8초마다 이 함수를 계속 호출합니다(700명이 동시에 열어두면 초당 수십 건).
+// 매번 시트를 새로 읽지 않도록 아래 10초 캐시(getAttendanceCached_)를 그대로 재사용합니다 —
+// 화면에서는 인원수(list.length)만 사용하므로 정렬 순서는 필요 없습니다.
 function actionGetAttendanceList_() {
-  const rows = sheetToObjects_(SHEET_NAMES.ATTENDANCE);
-  rows.sort((a, b) => new Date(b.time) - new Date(a.time));
-  return { ok: true, list: rows };
+  return { ok: true, list: getAttendanceCached_() };
 }
 
 // 몰리는 순간 매 요청마다 시트를 다시 읽지 않도록, 출석 명단을 10초간 캐시합니다.
@@ -181,9 +185,23 @@ function actionGetMaterialsGate_(p) {
   return { ok: true, attended: true, list: getMaterialsCached_() };
 }
 
-// 개인정보(이름 등) 노출 없이 전체 명단 인원수만 반환 — 출석체크 화면의 게이지 차트용
+// 로스터(명단)는 연수 중 사실상 바뀌지 않으므로 5분(300초)간 캐시합니다.
+// 출석체크·QR스캔·프로필저장·설문제출 등 락(Lock)을 쥐고 처리하는 함수들이 매번 명단 전체를
+// 다시 읽던 부분을 이걸로 대체해, 락을 쥐고 있는 시간(=몰릴 때 뒷사람이 기다리는 시간)을 줄입니다.
+// (혹시 명단이 수정되면 최대 5분 후에 반영됩니다 — 출석 여부처럼 실시간 정확도가 중요한 데이터가
+// 아니라 안전한 수준입니다.)
+function getRosterCached_() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get("rosterList");
+  if (cached) return JSON.parse(cached);
+  const rows = sheetToObjects_(SHEET_NAMES.ROSTER);
+  cache.put("rosterList", JSON.stringify(rows), 300);
+  return rows;
+}
+
+// 개인정보(이름 등) 노출 없이 전체 명단 인원수만 반환 — 출석체크 화면의 게이지 차트용.
 function actionGetRosterCount_() {
-  return { ok: true, count: sheetToObjects_(SHEET_NAMES.ROSTER).length };
+  return { ok: true, count: getRosterCached_().length };
 }
 
 function actionGetProfile_(p) {
@@ -256,7 +274,7 @@ function actionSaveProfile_(p) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
-    const roster = sheetToObjects_(SHEET_NAMES.ROSTER);
+    const roster = getRosterCached_();
     const match = roster.find(r => String(r.empId) === String(p.empId) && String(r.name).trim() === String(p.name).trim());
     if (!match) return { ok: false, message: "명단에서 사번/성명을 찾을 수 없습니다. 다시 확인해주세요." };
 
@@ -297,7 +315,7 @@ function actionLogScan_(p) {
         if (NETWORK_EVENT_TARGETS.indexOf(rank) !== -1) {
           firstScanRank = rank;
           ensureSheetWithHeaders_(SHEET_NAMES.EVENT_WINNERS, ["rank", "empId", "name", "org", "time"]);
-          const roster = sheetToObjects_(SHEET_NAMES.ROSTER);
+          const roster = getRosterCached_();
           const winner = roster.find(r => String(r.empId) === String(p.scannerId));
           appendRow_(SHEET_NAMES.EVENT_WINNERS, {
             rank, empId: p.scannerId, name: winner ? winner.name : "", org: winner ? winner.org : "",
@@ -805,7 +823,7 @@ function actionSubmitSurvey_(p) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
-    const roster = sheetToObjects_(SHEET_NAMES.ROSTER);
+    const roster = getRosterCached_();
     const match = roster.find(r => String(r.empId) === String(p.empId) && String(r.name).trim() === String(p.name).trim());
     if (!match) return { ok: false, message: "명단에서 사번/성명을 찾을 수 없습니다. 다시 확인해주세요." };
 

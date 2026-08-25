@@ -246,7 +246,14 @@
         return await fetchOnce_(action, payload);
       } catch (err) {
         lastErr = err;
-        if (attempt < maxRetries) await delay(400 * Math.pow(2, attempt)); // 400ms, 800ms
+        // 재시도 지연에 무작위성(지터)을 섞어둡니다 — 700명이 동시에 같은 이유로 실패하면
+        // 지터 없이는 모두 정확히 같은 순간(0.4초 후, 0.8초 후)에 다시 몰려 재시도 폭주로
+        // 이어질 수 있습니다. 기준 지연의 ±30% 범위에서 무작위로 흩어줍니다.
+        if (attempt < maxRetries) {
+          const base = 400 * Math.pow(2, attempt); // 400ms, 800ms
+          const jitter = base * 0.3 * (Math.random() * 2 - 1); // ±30%
+          await delay(Math.max(50, Math.round(base + jitter)));
+        }
       }
     }
     console.error("callServer failed after retries:", action, lastErr);
