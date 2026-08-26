@@ -34,7 +34,7 @@ window.CONFIG = {
   // 공통으로 사용하며, 그 아래에 좌/우 권역 문구만 나뉘어 표시됩니다.
   // 이미지는 VENUE_MAP_IMAGE와 동일한 방식(구글드라이브 링크/파일ID)으로 등록하세요.
   MEALPLACE_BREAKFAST_IMAGE: "https://drive.google.com/file/d/1jIUUuXxCFx_wchm1SLSJLY1gawiNQ4tU/view?usp=sharing",
-  MEALPLACE_LUNCH_IMAGE: "https://drive.google.com/file/d/137oQa1retpAQqfrL8GCsVBKqWqYSngtD/view?usp=sharing",
+  MEALPLACE_LUNCH_IMAGE: "https://drive.google.com/file/d/1yDyrsDYuhv_d-FDGo5K5Od0BrWnhlWYG/view?usp=sharing",
   MEALPLACE_LUNCH_LEFT_LABEL: "좌측 · 식당A",
   MEALPLACE_LUNCH_LEFT_REGIONS: "서인, 경원, 충청, 전북, 영남",
   MEALPLACE_LUNCH_RIGHT_LABEL: "우측 · 식당B",
