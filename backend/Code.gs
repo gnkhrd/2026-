@@ -501,8 +501,20 @@ function normalizeDriveImageUrl_(raw) {
   return url;
 }
 
+// 포스터 목록(CommunityPosters)은 담당자가 사전에 입력해두고 연수 중에는 거의 바뀌지 않으므로
+// 로스터와 동일하게 5분간 캐시합니다. 좋아요를 누를 때마다(락을 쥔 상태에서) 카테고리를 확인하려면
+// 이 목록이 필요한데, 매번 시트를 새로 읽으면 락 점유시간이 늘어나 몰릴 때 대기시간이 길어집니다.
+function getPostersCached_() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get("communityPostersList");
+  if (cached) return JSON.parse(cached);
+  const rows = sheetToObjects_(SHEET_NAMES.COMMUNITY_POSTERS);
+  cache.put("communityPostersList", JSON.stringify(rows), 300);
+  return rows;
+}
+
 function actionGetCommunityPosters_(p) {
-  const posters = sheetToObjects_(SHEET_NAMES.COMMUNITY_POSTERS);
+  const posters = getPostersCached_();
   // PosterLikes는 첫 좋아요가 눌리기 전까지는 시트 자체가 없을 수 있으므로(자동 생성 시트),
   // 없으면 만들어두고 시작합니다 — 그렇지 않으면 좋아요가 하나도 없는 상태에서 갤러리 조회 자체가 오류로 실패합니다.
   ensureSheetWithHeaders_(SHEET_NAMES.POSTER_LIKES, ["id", "empId", "time"]);
@@ -533,6 +545,9 @@ function actionGetCommunityPosters_(p) {
 }
 
 // 좋아요는 취소(재클릭) 없이 1인당 1포스터에 1회만 기록됩니다. (여러 포스터에는 각각 누를 수 있음)
+// 단, 같은 카테고리(분류) 안에서는 1인당 최대 2개까지만 누를 수 있습니다.
+const POSTER_LIKE_MAX_PER_CATEGORY = 2;
+
 function actionLikePoster_(p) {
   const empId = String(p.empId || "").trim();
   const id = String(p.id || "").trim();
@@ -542,10 +557,29 @@ function actionLikePoster_(p) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
+    const posters = getPostersCached_();
+    const targetPoster = posters.find(row => String(row.id) === id);
+    if (!targetPoster) return { ok: false, message: "포스터 정보를 찾을 수 없습니다." };
+    const category = targetPoster.category || "";
+
     ensureSheetWithHeaders_(SHEET_NAMES.POSTER_LIKES, ["id", "empId", "time"]);
     const likes = sheetToObjects_(SHEET_NAMES.POSTER_LIKES);
     const already = likes.some(l => String(l.id) === id && String(l.empId).trim() === empId);
     if (already) return { ok: false, message: "이미 이 포스터에 좋아요를 누르셨습니다." };
+
+    // 이 사람이 같은 카테고리의 다른 포스터에 이미 누른 좋아요 개수를 셉니다.
+    if (category) {
+      const postersById = {};
+      posters.forEach(row => { postersById[String(row.id)] = row; });
+      const myLikesInCategory = likes.filter(l => {
+        if (String(l.empId).trim() !== empId) return false;
+        const likedPoster = postersById[String(l.id)];
+        return likedPoster && (likedPoster.category || "") === category;
+      }).length;
+      if (myLikesInCategory >= POSTER_LIKE_MAX_PER_CATEGORY) {
+        return { ok: false, message: `이 분류(${category})에는 이미 ${POSTER_LIKE_MAX_PER_CATEGORY}개의 좋아요를 사용하셨습니다.` };
+      }
+    }
 
     appendRow_(SHEET_NAMES.POSTER_LIKES, { id, empId, time: new Date().toISOString() });
     const likeCount = likes.filter(l => String(l.id) === id).length + 1;
@@ -585,6 +619,25 @@ function computeLeaderboardScore_(uniqueCount, crossOrgCount) {
   let score = uniqueCount * LEADERBOARD_CONFIG.POINTS_PER_SCAN + crossOrgCount * LEADERBOARD_CONFIG.CROSS_ORG_BONUS;
   LEADERBOARD_CONFIG.MILESTONES.forEach(m => { if (uniqueCount >= m.count) score += m.bonus; });
   return score;
+}
+
+// "소속별 평균" 집계에서만 실제 로스터 소속 대신 아래 팀으로 묶어서 계산합니다.
+// (본부장/부장급 등 로스터상 소속이 상위 조직 단위로 되어 있어, 실제로 함께 활동하는 팀
+//  기준으로 평균을 내달라는 담당자 요청 — 2026-08-26. 본인의 화면 표시용 소속이나 개인 점수
+//  계산에는 영향이 없고, 오직 "소속별 평균" 랭킹의 소속 묶음에만 적용됩니다.)
+const LEADERBOARD_ORG_OVERRIDE = {
+  "G2014019": "경영기획팀",     // 김미호 (전략기획본부)
+  "N2012145": "경영기획팀",     // 고완석 (경영기획부)
+  "GN01301": "경영기획팀",      // 이진희 (경영기획부)
+  "N2007074": "디지털기획운영팀", // 박정순 (경영지원본부)
+  "N2012128": "디지털기획운영팀", // 송청환 (행정지원부)
+  "G2007003": "인재개발팀",     // 김성진 (역량강화센터)
+  "G2011037": "미래성장지원팀",  // 조수연 (아동권리사업본부)
+  "G2002005": "아동행복동행팀",  // 김미주 (아동권리사업부)
+  "N2006038": "임팩트사업1팀"   // 강인수 (임팩트사업부)
+};
+function leaderboardOrgOf_(empId, fallbackOrg) {
+  return LEADERBOARD_ORG_OVERRIDE[String(empId)] || fallbackOrg || "(미지정)";
 }
 
 // scanlog는 logScan 시점에 이미 (scannerId, scannedId) 중복을 막아두었으므로
@@ -634,15 +687,16 @@ function actionGetLeaderboard_(p) {
 
   // 소속별 평균 점수 = (그 소속 참여자들의 점수 합계) ÷ (그 소속의 출석체크 인원수).
   // 참여자 수가 아니라 출석 인원수로 나누기 때문에, 소속 내 참여율이 낮으면 평균도 함께 낮아집니다.
+  // (일부 인원은 LEADERBOARD_ORG_OVERRIDE에 따라 실제 로스터 소속이 아닌 지정된 팀으로 묶입니다.)
   const attendanceCountByOrg = {};
   attendance.forEach(a => {
-    const org = a.org || "(미지정)";
+    const org = leaderboardOrgOf_(a.empId, a.org);
     attendanceCountByOrg[org] = (attendanceCountByOrg[org] || 0) + 1;
   });
 
   const orgMap = {};
   individual.forEach(ind => {
-    const org = ind.org || "(미지정)";
+    const org = leaderboardOrgOf_(ind.empId, ind.org);
     if (!orgMap[org]) orgMap[org] = { org, totalScore: 0, memberCount: 0, totalScans: 0 };
     orgMap[org].totalScore += ind.score;
     orgMap[org].memberCount += 1;
@@ -728,15 +782,16 @@ function buildNetworkAnalytics_() {
     };
   });
 
+  // (일부 인원은 LEADERBOARD_ORG_OVERRIDE에 따라 실제 로스터 소속이 아닌 지정된 팀으로 묶입니다.)
   const attendanceCountByOrg = {};
   attendance.forEach(a => {
-    const org = a.org || "(미지정)";
+    const org = leaderboardOrgOf_(a.empId, a.org);
     attendanceCountByOrg[org] = (attendanceCountByOrg[org] || 0) + 1;
   });
 
   const orgMap = {};
   individual.forEach(ind => {
-    const org = ind.org || "(미지정)";
+    const org = leaderboardOrgOf_(ind.empId, ind.org);
     if (!orgMap[org]) orgMap[org] = { org, totalScore: 0, memberCount: 0, totalScans: 0, reachSet: new Set() };
     orgMap[org].totalScore += ind.score;
     orgMap[org].memberCount += 1;

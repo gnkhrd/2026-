@@ -294,7 +294,7 @@ function renderMealImageBox(elId, imageValue) {
   const box = document.getElementById(elId);
   const src = driveImageUrl(imageValue);
   if (!src) return; // 기본 "준비 중" 안내 유지
-  box.innerHTML = `<img src="${src}" alt="식사장소 이미지" style="max-width:100%; border-radius:12px;">`;
+  box.innerHTML = `<img src="${src}" alt="식사장소 이미지" style="max-width:66%; border-radius:12px;">`;
 }
 
 function renderLunchBox() {
@@ -312,7 +312,7 @@ function renderLunchBox() {
       <div class="mealplace-side">${right ? `<div class="mealplace-label">${rightLabel}</div><div class="mealplace-regions">${right}</div>` : ""}</div>
     </div>
   ` : "";
-  box.innerHTML = `<img src="${src}" alt="중식/석식 장소" style="max-width:100%; border-radius:12px;">${captionRow}`;
+  box.innerHTML = `<img src="${src}" alt="중식/석식 장소" style="max-width:66%; border-radius:12px;">${captionRow}`;
 }
 
 function loadMealPlaceImages() {
