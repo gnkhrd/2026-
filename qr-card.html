@@ -27,7 +27,7 @@
       </div>
       <div class="field">
         <label>성명</label>
-        <input type="text" id="ci-name" placeholder="예: 김민준">
+        <input type="text" id="ci-name" placeholder="예: 홍길동">
       </div>
       <div id="ci-result"></div>
       <button class="btn btn-primary" id="ci-check-btn">확인하고 이어서 작성하기</button>
@@ -119,12 +119,19 @@
 let html5QrCode = null;
 let isEditingExisting = false; // '내 정보 수정하기'로 들어온 경우 true (취소 시 main-view로 복귀)
 
+// 로스터의 소속(org)은 "00지부 0000기관"처럼 띄어쓰기로 이어 적혀 있어, 길면 아무 데서나
+// 줄바꿈되어 읽기 어려웠습니다. 띄어쓰기 기준으로 줄을 나눠 항상 "00지부 / 0000기관"처럼
+// 보이도록 합니다.
+function orgLines_(org) {
+  return String(org || "").trim().split(/\s+/).filter(Boolean).join("<br>");
+}
+
 function renderProfile(container, p) {
   container.innerHTML = `
     <div class="avatar">${p.photo ? `<img src="${p.photo}">` : initials(p.name)}</div>
     <div class="info">
       <div class="name">${p.name}</div>
-      <div class="role">${p.org || ""} ${p.role ? "· " + p.role : ""}</div>
+      <div class="role">${orgLines_(p.org)}${p.role ? " · " + p.role : ""}</div>
       <div class="keywords">${(p.keywords||[]).map(k => `<span class="badge">#${k}</span>`).join("")}</div>
     </div>
   `;
@@ -176,7 +183,7 @@ async function refreshScans() {
       <div class="avatar">${p.photo ? `<img src="${p.photo}">` : initials(p.name)}</div>
       <div>
         <div class="name">${p.name}</div>
-        <div class="meta">${p.org || ""}</div>
+        <div class="meta">${orgLines_(p.org)}</div>
       </div>
       <div class="time">${fmtDateTime(p.scannedAt)}</div>
     </div>
