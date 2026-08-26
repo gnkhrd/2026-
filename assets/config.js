@@ -33,8 +33,8 @@ window.CONFIG = {
   // 기타안내 > 식사장소 탭: 조식은 이미지 1장. "중식/석식"은 중식과 석식이 같은 장소라는 전제로 이미지 1장을
   // 공통으로 사용하며, 그 아래에 좌/우 권역 문구만 나뉘어 표시됩니다.
   // 이미지는 VENUE_MAP_IMAGE와 동일한 방식(구글드라이브 링크/파일ID)으로 등록하세요.
-  MEALPLACE_BREAKFAST_IMAGE: "https://drive.google.com/file/d/1xdpMJy-EF3SKIcIGao0FTLwLx4oA-Obb/view?usp=sharing",
-  MEALPLACE_LUNCH_IMAGE: "https://drive.google.com/file/d/1Eqy8Kb9i6Yg8IcWTWw_D40dAZ1tE8WoS/view?usp=sharing",
+  MEALPLACE_BREAKFAST_IMAGE: "https://drive.google.com/file/d/1jIUUuXxCFx_wchm1SLSJLY1gawiNQ4tU/view?usp=sharing",
+  MEALPLACE_LUNCH_IMAGE: "https://drive.google.com/file/d/137oQa1retpAQqfrL8GCsVBKqWqYSngtD/view?usp=sharing",
   MEALPLACE_LUNCH_LEFT_LABEL: "좌측 · 식당A",
   MEALPLACE_LUNCH_LEFT_REGIONS: "서인, 경원, 충청, 전북, 영남",
   MEALPLACE_LUNCH_RIGHT_LABEL: "우측 · 식당B",
@@ -42,7 +42,7 @@ window.CONFIG = {
 
   // 기타안내 > 자리배치표 탭(가장 앞 탭)에 보여줄 이미지 1장.
   // VENUE_MAP_IMAGE와 동일한 방식(구글드라이브 링크/파일ID)으로 등록하세요.
-  SEATING_CHART_IMAGE: "https://drive.google.com/file/d/1W_AcagSpPlt-zsFeNUxceO2JF4oUM0hf/view?usp=sharing",
+  SEATING_CHART_IMAGE: "https://drive.google.com/file/d/1dGDOjO5u32oBavocCdsDnJ0zKxxykIVl/view?usp=sharing",
 
   // 설문조사(만족도/종합평가)는 자체 제작 대신 기존에 쓰던 구글폼을 그대로 사용합니다.
   // 아래는 2025년 폼 링크입니다 — 2026년 연수 주제/발표자/날짜에 맞게 폼을 복제·수정한 뒤,

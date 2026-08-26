@@ -186,6 +186,13 @@
     <div class="empty">불러오는 중...</div>
   </div>
 </div>
+
+<!-- 포스터 이미지를 크게 보는 팝업 (기본 숨김) -->
+<div id="poster-lightbox" class="poster-lightbox" style="display:none;">
+  <img id="poster-lightbox-img" src="" alt="">
+  <div id="poster-lightbox-caption" class="poster-lightbox-caption"></div>
+</div>
+
 <script src="assets/config.js"></script>
 <script src="assets/mockdata.js"></script>
 <script src="assets/api.js"></script>
@@ -237,25 +244,63 @@ function renderPosterTabs() {
   });
 }
 
+// 좋아요는 같은 카테고리(분류) 안에서 1인당 최대 2개까지만 가능합니다 (서버의 POSTER_LIKE_MAX_PER_CATEGORY와 동일).
+// 여기서는 버튼을 미리 비활성화해 헛클릭을 막고, 실제 제한은 서버에서 한 번 더 확인합니다.
+const POSTER_LIKE_MAX_PER_CATEGORY = 2;
+
+function categoryLikeCounts_() {
+  const counts = {};
+  POSTERS.forEach(p => {
+    if (p.likedByMe && p.category) counts[p.category] = (counts[p.category] || 0) + 1;
+  });
+  return counts;
+}
+
 function renderPosterGrid() {
   const wrap = document.getElementById("poster-grid");
   const shown = posterCategories.length >= 2 ? POSTERS.filter(p => p.category === activeCategory) : POSTERS;
   if (!shown.length) { wrap.innerHTML = '<div class="empty">아직 등록된 포스터가 없습니다.</div>'; return; }
-  wrap.innerHTML = shown.map(p => `
+  const catCounts = categoryLikeCounts_();
+  wrap.innerHTML = shown.map(p => {
+    const categoryMaxed = !p.likedByMe && p.category && (catCounts[p.category] || 0) >= POSTER_LIKE_MAX_PER_CATEGORY;
+    const disabled = p.likedByMe || categoryMaxed;
+    let label = "🤍 좋아요";
+    if (p.likedByMe) label = "❤️ 좋아요 완료";
+    else if (categoryMaxed) label = `🔒 이 분류 ${POSTER_LIKE_MAX_PER_CATEGORY}개 완료`;
+    return `
     <div class="poster-card">
-      <img src="${p.imageUrl}" alt="${p.title}" loading="lazy">
+      <img src="${p.imageUrl}" alt="${p.title}" loading="lazy" data-id="${p.id}" class="poster-img-clickable">
       <div class="poster-org">${p.org}</div>
       <div class="poster-title">${p.title}</div>
-      <button class="poster-like-btn${p.likedByMe ? " liked" : ""}" data-id="${p.id}" ${p.likedByMe ? "disabled" : ""}>
-        <span>${p.likedByMe ? "❤️ 좋아요 완료" : "🤍 좋아요"}</span>
+      <button class="poster-like-btn${p.likedByMe ? " liked" : ""}${categoryMaxed ? " maxed" : ""}" data-id="${p.id}" ${disabled ? "disabled" : ""}>
+        <span>${label}</span>
         <span class="poster-like-count">${p.likeCount}</span>
       </button>
     </div>
-  `).join("");
-  wrap.querySelectorAll(".poster-like-btn:not(.liked)").forEach(btn => {
+  `;
+  }).join("");
+  wrap.querySelectorAll(".poster-like-btn:not(.liked):not(.maxed)").forEach(btn => {
     btn.addEventListener("click", () => handleLike(btn.dataset.id, btn));
   });
+  wrap.querySelectorAll(".poster-img-clickable").forEach(img => {
+    img.addEventListener("click", () => openPosterLightbox_(img.dataset.id));
+  });
 }
+
+// ---------- 이미지 팝업(라이트박스) ----------
+function openPosterLightbox_(id) {
+  const p = POSTERS.find(x => String(x.id) === String(id));
+  if (!p) return;
+  const box = document.getElementById("poster-lightbox");
+  document.getElementById("poster-lightbox-img").src = p.imageUrl;
+  document.getElementById("poster-lightbox-img").alt = p.title;
+  document.getElementById("poster-lightbox-caption").textContent = `${p.org} · ${p.title}`;
+  box.style.display = "flex";
+}
+function closePosterLightbox_() {
+  document.getElementById("poster-lightbox").style.display = "none";
+}
+document.getElementById("poster-lightbox").addEventListener("click", closePosterLightbox_);
 
 async function loadPosters() {
   const wrap = document.getElementById("poster-grid");

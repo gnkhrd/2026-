@@ -444,14 +444,31 @@
     },
 
     async likePoster({ empId, id }) {
+      // 같은 카테고리(분류) 안에서는 1인당 최대 2개까지만 좋아요 가능 (Code.gs의 POSTER_LIKE_MAX_PER_CATEGORY와 동일)
+      const MAX_PER_CATEGORY = 2;
       if (IS_MOCK) {
         await delay(150);
         const db = loadDB();
         const eid = String(empId || "").trim(), pid = String(id || "").trim();
         if (!eid) return { ok: false, message: "먼저 사번·성명을 확인해주세요." };
         if (!pid) return { ok: false, message: "포스터 정보를 찾을 수 없습니다." };
+        const targetPoster = db.communityPosters.find(row => String(row.id) === pid);
+        if (!targetPoster) return { ok: false, message: "포스터 정보를 찾을 수 없습니다." };
+        const category = targetPoster.category || "";
         const already = db.posterLikes.some(l => String(l.id) === pid && String(l.empId).trim() === eid);
         if (already) return { ok: false, message: "이미 이 포스터에 좋아요를 누르셨습니다." };
+        if (category) {
+          const postersById = {};
+          db.communityPosters.forEach(row => { postersById[String(row.id)] = row; });
+          const myLikesInCategory = db.posterLikes.filter(l => {
+            if (String(l.empId).trim() !== eid) return false;
+            const likedPoster = postersById[String(l.id)];
+            return likedPoster && (likedPoster.category || "") === category;
+          }).length;
+          if (myLikesInCategory >= MAX_PER_CATEGORY) {
+            return { ok: false, message: `이 분류(${category})에는 이미 ${MAX_PER_CATEGORY}개의 좋아요를 사용하셨습니다.` };
+          }
+        }
         db.posterLikes.push({ id: pid, empId: eid, time: new Date().toISOString() });
         saveDB(db);
         const likeCount = db.posterLikes.filter(l => String(l.id) === pid).length;
