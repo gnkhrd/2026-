@@ -246,7 +246,14 @@
         return await fetchOnce_(action, payload);
       } catch (err) {
         lastErr = err;
-        if (attempt < maxRetries) await delay(400 * Math.pow(2, attempt)); // 400ms, 800ms
+        // 재시도 지연에 무작위성(지터)을 섞어둡니다 — 700명이 동시에 같은 이유로 실패하면
+        // 지터 없이는 모두 정확히 같은 순간(0.4초 후, 0.8초 후)에 다시 몰려 재시도 폭주로
+        // 이어질 수 있습니다. 기준 지연의 ±30% 범위에서 무작위로 흩어줍니다.
+        if (attempt < maxRetries) {
+          const base = 400 * Math.pow(2, attempt); // 400ms, 800ms
+          const jitter = base * 0.3 * (Math.random() * 2 - 1); // ±30%
+          await delay(Math.max(50, Math.round(base + jitter)));
+        }
       }
     }
     console.error("callServer failed after retries:", action, lastErr);
@@ -437,20 +444,55 @@
     },
 
     async likePoster({ empId, id }) {
+      // 같은 카테고리(분류) 안에서는 1인당 최대 2개까지만 좋아요 가능 (Code.gs의 POSTER_LIKE_MAX_PER_CATEGORY와 동일)
+      const MAX_PER_CATEGORY = 2;
       if (IS_MOCK) {
         await delay(150);
         const db = loadDB();
         const eid = String(empId || "").trim(), pid = String(id || "").trim();
         if (!eid) return { ok: false, message: "먼저 사번·성명을 확인해주세요." };
         if (!pid) return { ok: false, message: "포스터 정보를 찾을 수 없습니다." };
+        const targetPoster = db.communityPosters.find(row => String(row.id) === pid);
+        if (!targetPoster) return { ok: false, message: "포스터 정보를 찾을 수 없습니다." };
+        const category = targetPoster.category || "";
         const already = db.posterLikes.some(l => String(l.id) === pid && String(l.empId).trim() === eid);
         if (already) return { ok: false, message: "이미 이 포스터에 좋아요를 누르셨습니다." };
+        if (category) {
+          const postersById = {};
+          db.communityPosters.forEach(row => { postersById[String(row.id)] = row; });
+          const myLikesInCategory = db.posterLikes.filter(l => {
+            if (String(l.empId).trim() !== eid) return false;
+            const likedPoster = postersById[String(l.id)];
+            return likedPoster && (likedPoster.category || "") === category;
+          }).length;
+          if (myLikesInCategory >= MAX_PER_CATEGORY) {
+            return { ok: false, message: `이 분류(${category})에는 이미 ${MAX_PER_CATEGORY}개의 좋아요를 사용하셨습니다.` };
+          }
+        }
         db.posterLikes.push({ id: pid, empId: eid, time: new Date().toISOString() });
         saveDB(db);
         const likeCount = db.posterLikes.filter(l => String(l.id) === pid).length;
         return { ok: true, likeCount };
       }
       return callServer("likePoster", { empId: empId || "", id: id || "" });
+    },
+
+    // 좋아요 취소 — 본인이 누른 것만 취소 가능
+    async unlikePoster({ empId, id }) {
+      if (IS_MOCK) {
+        await delay(150);
+        const db = loadDB();
+        const eid = String(empId || "").trim(), pid = String(id || "").trim();
+        if (!eid) return { ok: false, message: "먼저 사번·성명을 확인해주세요." };
+        if (!pid) return { ok: false, message: "포스터 정보를 찾을 수 없습니다." };
+        const before = db.posterLikes.length;
+        db.posterLikes = db.posterLikes.filter(l => !(String(l.id) === pid && String(l.empId).trim() === eid));
+        if (db.posterLikes.length === before) return { ok: false, message: "좋아요 기록을 찾을 수 없습니다." };
+        saveDB(db);
+        const likeCount = db.posterLikes.filter(l => String(l.id) === pid).length;
+        return { ok: true, likeCount };
+      }
+      return callServer("unlikePoster", { empId: empId || "", id: id || "" });
     },
 
     // 발표자료 열람 기록 (누가 언제 어떤 자료를 열었는지) — 유출 발생 시 추적용

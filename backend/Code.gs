@@ -54,7 +54,7 @@ const SHEET_NAMES = {
                             //  분류명(예: 1조/2조/3조/4조)을 자유롭게 적으면 되고, 실제로 적힌 값 종류대로 탭이 자동 생성됩니다.)
   POSTER_LIKES: "PosterLikes" // 이 시트는 직접 만들 필요 없이 자동으로 생성됩니다.
                             // (컬럼: id, empId, time — 누가 어떤 포스터에 좋아요를 눌렀는지 기록. 한 사람당 같은 포스터에는
-                            //  한 번만 기록되며, 취소(재클릭)는 지원하지 않습니다.)
+                            //  한 번만 기록되며, 취소하면 해당 행이 삭제됩니다.)
 };
 
 // "N번째로 네트워크 활동을 시작한 사람"을 이벤트 당첨자로 선정할 순번들입니다.
@@ -92,6 +92,27 @@ function appendRow_(sheetName, obj, headerOrder) {
   const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(h => String(h).trim());
   const row = headers.map(h => (obj[h] !== undefined ? obj[h] : ""));
   sh.appendRow(row);
+}
+
+// 조건에 맞는 행을 찾아 삭제합니다 (좋아요 취소처럼 "기록을 되돌리는" 용도).
+// matchFn(rowObject) => true인 행을 모두 지웁니다. 아래에서 위로 훑어야 deleteRow로 인한
+// 행 번호 밀림 문제가 생기지 않습니다. 지운 행 수를 반환합니다.
+function deleteRowsWhere_(sheetName, matchFn) {
+  const sh = getSheet_(sheetName);
+  const values = sh.getDataRange().getValues();
+  if (values.length < 2) return 0;
+  const headers = values[0].map(h => String(h).trim());
+  let deleted = 0;
+  for (let i = values.length - 1; i >= 1; i--) {
+    const row = values[i];
+    const obj = {};
+    headers.forEach((h, idx) => { obj[h] = row[idx]; });
+    if (matchFn(obj)) {
+      sh.deleteRow(i + 1);
+      deleted++;
+    }
+  }
+  return deleted;
 }
 
 // EventWinners처럼 "미리 직접 만들어두지 않아도 되는" 시트를 위한 헬퍼입니다.
@@ -589,6 +610,28 @@ function actionLikePoster_(p) {
   }
 }
 
+// 좋아요 취소 — 본인이 누른 좋아요 기록만 지울 수 있습니다.
+function actionUnlikePoster_(p) {
+  const empId = String(p.empId || "").trim();
+  const id = String(p.id || "").trim();
+  if (!empId) return { ok: false, message: "먼저 사번·성명을 확인해주세요." };
+  if (!id) return { ok: false, message: "포스터 정보를 찾을 수 없습니다." };
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    ensureSheetWithHeaders_(SHEET_NAMES.POSTER_LIKES, ["id", "empId", "time"]);
+    const deleted = deleteRowsWhere_(SHEET_NAMES.POSTER_LIKES, row => String(row.id) === id && String(row.empId).trim() === empId);
+    if (!deleted) return { ok: false, message: "좋아요 기록을 찾을 수 없습니다." };
+
+    const likes = sheetToObjects_(SHEET_NAMES.POSTER_LIKES);
+    const likeCount = likes.filter(l => String(l.id) === id).length;
+    return { ok: true, likeCount };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 // ---------- 방배정표 ----------
 // 650명 전체 명단을 그대로 반환합니다 (개인정보는 사번/성명/소속/방 뿐이라
 // 다른 기능들과 동일 수준). 클라이언트(info.html)에서 사번+성명 검색과
@@ -933,6 +976,7 @@ function route_(action, p) {
     case "getBanners": return actionGetBanners_();
     case "getCommunityPosters": return actionGetCommunityPosters_(p);
     case "likePoster": return actionLikePoster_(p);
+    case "unlikePoster": return actionUnlikePoster_(p);
     case "getRoomAssignment": return actionGetRoomAssignment_();
     case "getMealGroups": return actionGetMealGroups_();
     case "getLeaderboard": return actionGetLeaderboard_(p);
