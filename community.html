@@ -162,7 +162,7 @@
   </div>
   <div class="notice info">
     마음에 드는 포스터에 좋아요를 눌러주세요! 포스터당 좋아요는 1인 1회만 가능하고, 누른 좋아요를 다시 탭하면 취소할 수 있어요.
-    여러 포스터에 각각 눌러도 괜찮아요. 좋아요가 가장 많은 포스터에 특별상을 드립니다.
+    키워드 당 2개 포스터에 좋아요를 누를 수 있어요. 좋아요가 가장 많은 포스터에 특별상을 드립니다.
   </div>
 
   <!-- 아직 사번·성명이 확인되지 않은 경우에만 노출 (좋아요를 누르려면 필요) -->
@@ -337,7 +337,12 @@ async function handleLike(id, btn) {
     btn.disabled = false;
     return;
   }
-  loadPosters();
+  // 성공 후 서버에서 전체 목록을 다시 받아오지 않고, 이 포스터 값만 화면에서 바로 갱신합니다.
+  // (Apps Script는 요청 1번에도 시간이 좀 걸리는데, 다시 불러오면 왕복이 한 번 더 생겨 그만큼
+  // 버퍼링이 늘어납니다 — 이미 응답으로 받은 최신 likeCount를 그대로 반영해 왕복을 줄입니다.)
+  const p = POSTERS.find(x => String(x.id) === String(id));
+  if (p) { p.likedByMe = true; p.likeCount = res.likeCount; }
+  renderPosterGrid();
 }
 
 async function handleUnlike(id, btn) {
@@ -349,7 +354,9 @@ async function handleUnlike(id, btn) {
     btn.disabled = false;
     return;
   }
-  loadPosters();
+  const p = POSTERS.find(x => String(x.id) === String(id));
+  if (p) { p.likedByMe = false; p.likeCount = res.likeCount; }
+  renderPosterGrid();
 }
 
 document.getElementById("pi-check-btn").addEventListener("click", async () => {
