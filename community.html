@@ -161,7 +161,7 @@
     <span>🖼️ 포스터 갤러리 · 특별상 투표</span>
   </div>
   <div class="notice info">
-    마음에 드는 포스터에 좋아요를 눌러주세요! 포스터당 좋아요는 1인 1회만 가능하고(취소 불가),
+    마음에 드는 포스터에 좋아요를 눌러주세요! 포스터당 좋아요는 1인 1회만 가능하고, 누른 좋아요를 다시 탭하면 취소할 수 있어요.
     여러 포스터에 각각 눌러도 괜찮아요. 좋아요가 가장 많은 포스터에 특별상을 드립니다.
   </div>
 
@@ -263,9 +263,9 @@ function renderPosterGrid() {
   const catCounts = categoryLikeCounts_();
   wrap.innerHTML = shown.map(p => {
     const categoryMaxed = !p.likedByMe && p.category && (catCounts[p.category] || 0) >= POSTER_LIKE_MAX_PER_CATEGORY;
-    const disabled = p.likedByMe || categoryMaxed;
+    const disabled = categoryMaxed; // 좋아요를 이미 누른 경우는 취소를 위해 계속 클릭 가능해야 함
     let label = "🤍 좋아요";
-    if (p.likedByMe) label = "❤️ 좋아요 완료";
+    if (p.likedByMe) label = "❤️ 좋아요 완료 · 탭하여 취소";
     else if (categoryMaxed) label = `🔒 이 분류 ${POSTER_LIKE_MAX_PER_CATEGORY}개 완료`;
     return `
     <div class="poster-card">
@@ -279,6 +279,9 @@ function renderPosterGrid() {
     </div>
   `;
   }).join("");
+  wrap.querySelectorAll(".poster-like-btn.liked").forEach(btn => {
+    btn.addEventListener("click", () => handleUnlike(btn.dataset.id, btn));
+  });
   wrap.querySelectorAll(".poster-like-btn:not(.liked):not(.maxed)").forEach(btn => {
     btn.addEventListener("click", () => handleLike(btn.dataset.id, btn));
   });
@@ -331,6 +334,18 @@ async function handleLike(id, btn) {
   const res = await API.likePoster({ empId: myEmpId(), id });
   if (!res.ok) {
     alert(res.message || "좋아요 처리에 실패했습니다.");
+    btn.disabled = false;
+    return;
+  }
+  loadPosters();
+}
+
+async function handleUnlike(id, btn) {
+  if (!confirm("이 포스터에 누른 좋아요를 취소할까요?")) return;
+  btn.disabled = true;
+  const res = await API.unlikePoster({ empId: myEmpId(), id });
+  if (!res.ok) {
+    alert(res.message || "좋아요 취소에 실패했습니다.");
     btn.disabled = false;
     return;
   }
