@@ -477,6 +477,24 @@
       return callServer("likePoster", { empId: empId || "", id: id || "" });
     },
 
+    // 좋아요 취소 — 본인이 누른 것만 취소 가능
+    async unlikePoster({ empId, id }) {
+      if (IS_MOCK) {
+        await delay(150);
+        const db = loadDB();
+        const eid = String(empId || "").trim(), pid = String(id || "").trim();
+        if (!eid) return { ok: false, message: "먼저 사번·성명을 확인해주세요." };
+        if (!pid) return { ok: false, message: "포스터 정보를 찾을 수 없습니다." };
+        const before = db.posterLikes.length;
+        db.posterLikes = db.posterLikes.filter(l => !(String(l.id) === pid && String(l.empId).trim() === eid));
+        if (db.posterLikes.length === before) return { ok: false, message: "좋아요 기록을 찾을 수 없습니다." };
+        saveDB(db);
+        const likeCount = db.posterLikes.filter(l => String(l.id) === pid).length;
+        return { ok: true, likeCount };
+      }
+      return callServer("unlikePoster", { empId: empId || "", id: id || "" });
+    },
+
     // 발표자료 열람 기록 (누가 언제 어떤 자료를 열었는지) — 유출 발생 시 추적용
     async logMaterialView({ empId, name, org, materialTitle }) {
       if (IS_MOCK) {

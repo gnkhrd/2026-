@@ -350,7 +350,7 @@ body{
   cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
 }
 .poster-like-btn.liked{
-  background: rgba(178,58,46,.10); color: var(--danger); border-color: rgba(178,58,46,.28); cursor:default;
+  background: rgba(178,58,46,.10); color: var(--danger); border-color: rgba(178,58,46,.28); cursor:pointer;
 }
 .poster-like-btn.maxed{
   background: var(--bg-card-2); color: var(--text-faint); border-color: var(--border); cursor:default; opacity:.75;
