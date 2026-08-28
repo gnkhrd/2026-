@@ -49,6 +49,10 @@ window.CONFIG = {
   // 그 새 폼의 링크로 반드시 교체하세요. (폼 자체의 "응답 > 요약" 탭에서 항목별 평균/그래프를 바로 볼 수 있습니다.)
   SURVEY_FORM_URL: "https://docs.google.com/forms/d/e/1FAIpQLSdp4R0lYmJ5sDORh9Qtc08Lv3J_XfTKC5tnR8fkJIAoFgtRtg/viewform",
 
+  // 기타안내 > 설문조사 탭 상단에 보여줄 이미지 1장(선택사항 — QR코드, 안내 이미지 등).
+  // VENUE_MAP_IMAGE와 동일한 방식(구글드라이브 링크/파일ID)으로 등록하세요. 비워두면 이미지 없이 문구+버튼만 보입니다.
+  SURVEY_IMAGE: "https://drive.google.com/file/d/15W7kGeDv4tM1HEQWoJqBxJSXO9cz9ivW/view?usp=sharing",
+
   // 설문조사는 기타안내(info.html) 탭 안에 노출됩니다 — 이 날짜/시각 이후로 계속 열려있습니다(상시오픈, 종료시각 없음).
   SURVEY_TAB_OPEN_AT: { date: "2026-09-03", time: "12:30" },
 

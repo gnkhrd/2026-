@@ -56,7 +56,7 @@
     </div>
 
     <details class="card" id="room-full-list-toggle" style="padding:14px;">
-      <summary style="cursor:pointer; font-weight:700; font-size:14px;">📋 전체 방배정 명단 보기</summary>
+      <summary style="cursor:pointer; font-weight:700; font-size:14px;">📋 전체 방배정 명단 보기(좌/우 스크롤)</summary>
       <div id="room-full-list-body" style="margin-top:12px;">
         <div class="empty">눌러서 불러오세요.</div>
       </div>
@@ -342,7 +342,9 @@ function loadSurveyTab() {
     box.innerHTML = '<div class="empty">설문조사 링크가 아직 등록되지 않았습니다.</div>';
     return;
   }
+  const imgSrc = driveImageUrl(window.CONFIG.SURVEY_IMAGE);
   box.innerHTML = `
+    ${imgSrc ? `<img src="${imgSrc}" alt="설문조사 안내" style="max-width:100%; border-radius:12px; margin-bottom:18px;">` : ""}
     <div style="font-size:15px; color:var(--text-dim); margin-bottom:18px; line-height:1.5;">
       설문조사는 구글폼으로 진행됩니다.<br>아래 버튼을 누르면 새 창에서 설문을 작성할 수 있어요.
     </div>
