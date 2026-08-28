@@ -51,10 +51,10 @@ window.CONFIG = {
 
   // 기타안내 > 설문조사 탭 상단에 보여줄 이미지 1장(선택사항 — QR코드, 안내 이미지 등).
   // VENUE_MAP_IMAGE와 동일한 방식(구글드라이브 링크/파일ID)으로 등록하세요. 비워두면 이미지 없이 문구+버튼만 보입니다.
-  SURVEY_IMAGE: "https://drive.google.com/file/d/15W7kGeDv4tM1HEQWoJqBxJSXO9cz9ivW/view?usp=sharing",
+  SURVEY_IMAGE: "https://drive.google.com/file/d/1GS4SQKX7iAeggYuK4CZp5TBqYNEGkdFn/view?usp=sharing",
 
   // 설문조사는 기타안내(info.html) 탭 안에 노출됩니다 — 이 날짜/시각 이후로 계속 열려있습니다(상시오픈, 종료시각 없음).
-  SURVEY_TAB_OPEN_AT: { date: "2026-09-03", time: "12:30" },
+  SURVEY_TAB_OPEN_AT: { date: "2026-09-03", time: "12:20" },
 
   // ▼ 사이트 전체 접속 허용 기간 ─────────────────────────────────────────
   // 아래 목록에 있는 기간에만 사이트 전체(모든 화면)가 열립니다. 그 외 시간에는
