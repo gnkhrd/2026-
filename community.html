@@ -290,6 +290,32 @@
 <script src="assets/api.js"></script>
 <script src="assets/util.js"></script>
 <script>
+/* ---------- 공동체 안내 페이지 오픈 시각 게이트 ---------- */
+function isCommunityOpen() {
+  const cfg = window.CONFIG.COMMUNITY_OPEN_AT;
+  if (!cfg) return true;
+  const kst = nowKST();
+  if (kst.date < cfg.date) return false;
+  if (kst.date === cfg.date && kst.hhmm < cfg.time) return false;
+  return true;
+}
+const COMMUNITY_PREVIEW_BYPASS = new URLSearchParams(location.search).get("preview") === "1";
+if (!COMMUNITY_PREVIEW_BYPASS && !isCommunityOpen()) {
+  const app = document.querySelector(".app");
+  if (app) app.style.display = "none";
+  const cfg = window.CONFIG.COMMUNITY_OPEN_AT;
+  const lock = document.createElement("div");
+  lock.className = "site-locked";
+  lock.innerHTML = `
+    <div class="site-locked-box">
+      <div class="site-locked-icon">🔒</div>
+      <div class="site-locked-title">아직 열리지 않았습니다</div>
+      <div class="site-locked-desc">🗓️ 공동체 안내는 2일차인 09월02일 수요일 13시30분 이후부터 확인 가능합니다. ⏰</div>
+    </div>
+  `;
+  document.body.appendChild(lock);
+}
+
 let POSTERS = [];
 let posterCategories = []; // 실제 시트에 입력된 category 값들 (처음 등장한 순서대로) — 이 목록 그대로 탭이 됩니다.
 let activeCategory = null;
@@ -468,8 +494,10 @@ document.getElementById("pi-check-btn").addEventListener("click", async () => {
   loadPosters();
 });
 
-if (!hasIdentity()) document.getElementById("poster-identify-box").style.display = "";
-loadPosters();
+if (COMMUNITY_PREVIEW_BYPASS || isCommunityOpen()) {
+  if (!hasIdentity()) document.getElementById("poster-identify-box").style.display = "";
+  loadPosters();
+}
 </script>
 </body>
 </html>
