@@ -68,9 +68,9 @@ window.CONFIG = {
   // - 담당자는 주소 끝에 "?preview=1"을 붙이면 이 제한과 무관하게 언제든 미리 볼 수 있습니다.
   //   예) https://gnkhrd.github.io/2026-/index.html?preview=1
   //
-  // 연수모드 — 실제 연수 시작일(2026-09-01) 00:00부터 상시오픈으로 전환했습니다.
+  // 연수모드 — 지금(2026-08-31 21:21)부터 종료시각 없이 상시오픈으로 전환했습니다.
   SITE_ACCESS_WINDOWS: [
-    { start: { date: "2026-09-01", time: "00:00" }, end: null }
+    { start: { date: "2026-08-31", time: "21:21" }, end: null }
   ],
   // SITE_ACCESS_WINDOWS: [
   //   { start: { date: "2026-08-06", time: "00:00" }, end: { date: "2026-08-06", time: "23:59" } }, // 특정일 테스트 공개 예시
