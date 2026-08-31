@@ -203,7 +203,7 @@ async function handleScannedId(scannedId) {
     document.getElementById("profile-modal").style.display = "flex";
     const container = document.getElementById("modal-profile");
     renderProfile(container, res.profile);
-    // 지정된 순번(예: 10번째)의 첫 스캔 당첨자에게만 축하 배너가 뜹니다. (다른 사람들에게는 보이지 않음)
+    // 지정된 순번(예: 1991번째)의 첫 스캔 당첨자에게만 축하 배너가 뜹니다. (다른 사람들에게는 보이지 않음)
     if (res.firstScanRank) {
       container.insertAdjacentHTML("afterbegin", `
         <div class="notice success" style="width:100%; margin-bottom:12px; text-align:center; font-weight:700;">

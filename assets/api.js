@@ -8,8 +8,8 @@
   const IS_MOCK = !window.CONFIG.APPS_SCRIPT_URL;
   const LS_KEY = "gn2026_mock_db";
 
-  // MOCK 모드 테스트용 — backend/Code.gs의 NETWORK_EVENT_TARGETS 기본값과 동일 (현재 테스트 기준 10번째만)
-  const NETWORK_EVENT_TARGETS = [10];
+  // MOCK 모드 테스트용 — backend/Code.gs의 NETWORK_EVENT_TARGETS 값과 동일하게 맞춰주세요.
+  const NETWORK_EVENT_TARGETS = [1991];
 
   function loadDB() {
     let db = null;

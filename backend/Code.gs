@@ -58,9 +58,8 @@ const SHEET_NAMES = {
 };
 
 // "N번째로 네트워크 활동을 시작한 사람"을 이벤트 당첨자로 선정할 순번들입니다.
-// 지금은 테스트 목적으로 10번째만 지정해두었습니다. 실제 운영 시 이 배열만 바꾸면 됩니다.
 // (예: [50] → 50번째 1명만 당첨 / [50, 100] → 50번째·100번째 각각 당첨)
-const NETWORK_EVENT_TARGETS = [10];
+const NETWORK_EVENT_TARGETS = [1991];
 
 function ss_() { return SpreadsheetApp.getActiveSpreadsheet(); }
 
@@ -331,7 +330,7 @@ function actionLogScan_(p) {
         distinctScanners.add(String(p.scannerId));
         const rank = distinctScanners.size; // 이 사람을 포함해 지금까지 네트워크 활동을 시작한 총 인원수
 
-        // 지정된 순번(예: 10번째)에 해당할 때만 당첨자로 확정하고, 확인용으로 시트에 기록해둡니다.
+        // 지정된 순번(예: 1991번째)에 해당할 때만 당첨자로 확정하고, 확인용으로 시트에 기록해둡니다.
         // (다른 사람들에게는 몇 번째인지 전혀 노출되지 않습니다 — 당첨자 본인만 배너를 보게 됩니다.)
         if (NETWORK_EVENT_TARGETS.indexOf(rank) !== -1) {
           firstScanRank = rank;
