@@ -49,8 +49,18 @@ window.CONFIG = {
   // 그 새 폼의 링크로 반드시 교체하세요. (폼 자체의 "응답 > 요약" 탭에서 항목별 평균/그래프를 바로 볼 수 있습니다.)
   SURVEY_FORM_URL: "https://docs.google.com/forms/d/e/1FAIpQLSdp4R0lYmJ5sDORh9Qtc08Lv3J_XfTKC5tnR8fkJIAoFgtRtg/viewform",
 
+  // 기타안내 > 설문조사 탭 상단에 보여줄 이미지 1장(선택사항 — QR코드, 안내 이미지 등).
+  // VENUE_MAP_IMAGE와 동일한 방식(구글드라이브 링크/파일ID)으로 등록하세요. 비워두면 이미지 없이 문구+버튼만 보입니다.
+  SURVEY_IMAGE: "https://drive.google.com/file/d/1GS4SQKX7iAeggYuK4CZp5TBqYNEGkdFn/view?usp=sharing",
+
   // 설문조사는 기타안내(info.html) 탭 안에 노출됩니다 — 이 날짜/시각 이후로 계속 열려있습니다(상시오픈, 종료시각 없음).
-  SURVEY_TAB_OPEN_AT: { date: "2026-09-03", time: "12:30" },
+  SURVEY_TAB_OPEN_AT: { date: "2026-09-03", time: "12:20" },
+
+  // 공동체 안내(community.html) 페이지 전체가 이 날짜/시각부터 열립니다(그 전엔 "아직 열리지 않았습니다" 안내만 표시,
+  // 이후로는 종료시각 없이 계속 열려있습니다). 담당자는 주소 끝에 "?preview=1"을 붙이면 이 제한과 무관하게 미리 볼 수 있습니다.
+  // ※ 지금은 테스트 편의를 위해 null로 두어 "항상 열림" 상태입니다. 실제 운영 시 아래 주석을 해제해 다시 잠가주세요.
+  COMMUNITY_OPEN_AT: null,
+  // COMMUNITY_OPEN_AT: { date: "2026-09-02", time: "13:30" },
 
   // ▼ 사이트 전체 접속 허용 기간 ─────────────────────────────────────────
   // 아래 목록에 있는 기간에만 사이트 전체(모든 화면)가 열립니다. 그 외 시간에는
