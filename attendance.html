@@ -57,16 +57,29 @@
 //     쌓여서, 페이지를 열어둔 채로도 점들이 계속 늘어나는 걸 실시간으로 볼 수 있습니다.
 let crowdDotsRendered = 0;
 
+// 초록색 점은 최대 2줄 분량까지만 찍고, 그 이상 출석이 이어져도 점을 더 추가하지 않습니다.
+// (CI 로고 채움은 refreshVisuals에서 실제 비율 그대로 계속 진행되며, 이 상한과 무관합니다.)
+// 컨테이너 실제 너비를 기준으로 한 줄에 몇 개가 들어가는지 매번 다시 계산합니다(반응형 대응).
+const CROWD_MAX_ROWS = 2;
+function crowdMaxDots_() {
+  const grid = document.getElementById("crowd-grid");
+  const w = grid.clientWidth || 300;
+  const DOT = 14, GAP = 7; // .crowd-dot 크기 / .crowd-grid gap 과 동일한 값
+  const perRow = Math.max(1, Math.floor((w + GAP) / (DOT + GAP)));
+  return perRow * CROWD_MAX_ROWS;
+}
+
 function growCrowd(count) {
   const grid = document.getElementById("crowd-grid");
-  if (count < crowdDotsRendered) { grid.innerHTML = ""; crowdDotsRendered = 0; } // 방어적 처리(보통 발생하지 않음)
-  const toAdd = count - crowdDotsRendered;
+  const target = Math.min(count, crowdMaxDots_());
+  if (target < crowdDotsRendered) { grid.innerHTML = ""; crowdDotsRendered = 0; } // 방어적 처리(보통 발생하지 않음)
+  const toAdd = target - crowdDotsRendered;
   for (let i = 0; i < toAdd; i++) {
     const dot = document.createElement("div");
     dot.className = "crowd-dot";
     grid.appendChild(dot);
   }
-  crowdDotsRendered = count;
+  crowdDotsRendered = target;
 }
 
 async function refreshVisuals(count) {

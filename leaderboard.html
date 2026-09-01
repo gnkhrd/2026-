@@ -183,7 +183,7 @@ async function loadLeaderboard() {
   if (!res.orgRanking.length) {
     orgWrap.innerHTML = '<div class="empty">아직 스캔 기록이 없습니다.</div>';
   } else {
-    orgWrap.innerHTML = res.orgRanking.map((o, i) => `
+    orgWrap.innerHTML = res.orgRanking.slice(0, 10).map((o, i) => `
       <div class="org-rank-item">
         <div class="rank-num">${ordinalBadge(i + 1)}</div>
         <div class="org-info">
