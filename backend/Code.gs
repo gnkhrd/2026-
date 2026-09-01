@@ -131,6 +131,11 @@ function splitKeywords_(raw) {
   return String(raw).split(/[,，\s]+/).map(s => s.trim()).filter(Boolean);
 }
 
+// 사번은 대/소문자 차이(예: gn04467 vs GN04467)나 앞뒤 공백 때문에 실제로는 명단에 있는데도
+// "명단에서 찾을 수 없습니다"로 실패하는 경우가 있어, 비교할 때 항상 대문자로 통일합니다.
+// (휴대폰 자동 대문자 입력은 브라우저/기기마다 동작이 달라 100% 보장되지 않습니다.)
+function normEmpId_(v) { return String(v || "").trim().toUpperCase(); }
+
 function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
@@ -144,16 +149,17 @@ function actionCheckIn_(p) {
   // "실패"로 끊기는 대신 좀 더 기다렸다가 성공할 여지를 줍니다.)
   lock.waitLock(20000);
   try {
+    const empId = normEmpId_(p.empId);
     const roster = getRosterCached_();
-    const match = roster.find(r => String(r.empId) === String(p.empId) && String(r.name).trim() === String(p.name).trim());
+    const match = roster.find(r => normEmpId_(r.empId) === empId && String(r.name).trim() === String(p.name).trim());
     if (!match) return { ok: false, message: "명단에서 사번/성명을 찾을 수 없습니다. 다시 확인해주세요." };
 
     const attendance = sheetToObjects_(SHEET_NAMES.ATTENDANCE);
-    if (attendance.find(a => String(a.empId) === String(p.empId))) {
+    if (attendance.find(a => normEmpId_(a.empId) === empId)) {
       return { ok: false, message: "이미 출석 처리되었습니다." };
     }
     appendRow_(SHEET_NAMES.ATTENDANCE, {
-      empId: p.empId, name: p.name, org: p.org || match.org, role: match.role || "", time: new Date().toISOString()
+      empId: match.empId, name: p.name, org: p.org || match.org, role: match.role || "", time: new Date().toISOString()
     });
     // 캐시된 출석 명단이 있다면 즉시 무효화 — 방금 출석체크한 사람이 곧바로 발표자료 등
     // 출석 게이트를 통과해야 하는데, 캐시가 남아있으면 최대 캐시 시간만큼 "미출석"으로 잘못 보일 수 있음.
@@ -225,8 +231,9 @@ function actionGetRosterCount_() {
 }
 
 function actionGetProfile_(p) {
+  const empId = normEmpId_(p.empId);
   const rows = sheetToObjects_(SHEET_NAMES.PROFILES);
-  const row = rows.find(r => String(r.empId) === String(p.empId));
+  const row = rows.find(r => normEmpId_(r.empId) === empId);
   if (!row) return { ok: false, message: "아직 명함을 만들지 않았습니다. 먼저 명함을 만들어주세요." };
   return {
     ok: true,
@@ -267,12 +274,13 @@ function upsertProfile_(fields) {
 // 1단계: 사번/성명을 명단과 대조하고, 기존에 만든 명함이 있으면 그 내용을 돌려줍니다.
 // (편집 화면을 채워주기 위함 — 없으면 org만 채운 빈 틀을 돌려줌)
 function actionGetOrInitProfile_(p) {
+  const empId = normEmpId_(p.empId);
   const roster = sheetToObjects_(SHEET_NAMES.ROSTER);
-  const match = roster.find(r => String(r.empId) === String(p.empId) && String(r.name).trim() === String(p.name).trim());
+  const match = roster.find(r => normEmpId_(r.empId) === empId && String(r.name).trim() === String(p.name).trim());
   if (!match) return { ok: false, message: "명단에서 사번/성명을 찾을 수 없습니다. 다시 확인해주세요." };
 
   const rows = sheetToObjects_(SHEET_NAMES.PROFILES);
-  const row = rows.find(r => String(r.empId) === String(p.empId));
+  const row = rows.find(r => normEmpId_(r.empId) === empId);
   if (row) {
     return {
       ok: true, isNew: false,
@@ -285,7 +293,7 @@ function actionGetOrInitProfile_(p) {
   }
   return {
     ok: true, isNew: true,
-    profile: { empId: p.empId, name: match.name, org: match.org, role: "", keywords: "", intro: "", photo: "" }
+    profile: { empId: match.empId, name: match.name, org: match.org, role: "", keywords: "", intro: "", photo: "" }
   };
 }
 
@@ -294,12 +302,13 @@ function actionSaveProfile_(p) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
+    const empId = normEmpId_(p.empId);
     const roster = getRosterCached_();
-    const match = roster.find(r => String(r.empId) === String(p.empId) && String(r.name).trim() === String(p.name).trim());
+    const match = roster.find(r => normEmpId_(r.empId) === empId && String(r.name).trim() === String(p.name).trim());
     if (!match) return { ok: false, message: "명단에서 사번/성명을 찾을 수 없습니다. 다시 확인해주세요." };
 
     upsertProfile_({
-      empId: p.empId,
+      empId: match.empId,
       name: p.name,
       org: match.org, // 소속은 클라이언트가 보낸 값을 무시하고 항상 로스터 기준으로 고정 저장합니다.
       role: p.role || "",
@@ -920,17 +929,18 @@ function actionSubmitSurvey_(p) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
+    const empId = normEmpId_(p.empId);
     const roster = getRosterCached_();
-    const match = roster.find(r => String(r.empId) === String(p.empId) && String(r.name).trim() === String(p.name).trim());
+    const match = roster.find(r => normEmpId_(r.empId) === empId && String(r.name).trim() === String(p.name).trim());
     if (!match) return { ok: false, message: "명단에서 사번/성명을 찾을 수 없습니다. 다시 확인해주세요." };
 
     const existing = sheetToObjects_(SHEET_NAMES.SURVEY_RESPONSES);
-    if (existing.find(r => String(r.empId) === String(p.empId))) {
+    if (existing.find(r => normEmpId_(r.empId) === empId)) {
       return { ok: false, message: "이미 설문에 참여하셨습니다. 소중한 의견 감사합니다." };
     }
 
     appendRow_(SHEET_NAMES.SURVEY_RESPONSES, {
-      empId: p.empId, name: p.name, org: p.org || match.org, role: p.role || match.role || "",
+      empId: match.empId, name: p.name, org: p.org || match.org, role: p.role || match.role || "",
       item1: p.item1, item2: p.item2, item3: p.item3, item4: p.item4, item5: p.item5,
       comment: p.comment || "", submittedAt: new Date().toISOString()
     });
