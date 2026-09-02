@@ -252,30 +252,38 @@
   <div class="section-title">
     <span>🖼️ 포스터 갤러리 · 특별상 투표</span>
   </div>
-  <div class="notice info">
-    마음에 드는 포스터에 좋아요를 눌러주세요! 포스터당 좋아요는 1인 1회만 가능하고, 누른 좋아요를 다시 탭하면 취소할 수 있어요.
-    키워드 당 2개 포스터에 좋아요를 누를 수 있어요. 좋아요가 가장 많은 포스터에 특별상을 드립니다.
+
+  <!-- 오픈 시각 전에는 이 안내만 보이고, 아래 실제 갤러리 영역(poster-gallery-area)은 숨겨집니다. -->
+  <div id="poster-gallery-locked" class="notice info" style="display:none;">
+    🖼️ 포스터 갤러리는 준비 중입니다. 오픈되면 이곳에서 바로 확인하실 수 있어요.
   </div>
 
-  <!-- 아직 사번·성명이 확인되지 않은 경우에만 노출 (좋아요를 누르려면 필요) -->
-  <div id="poster-identify-box" class="card" style="display:none;">
-    <div style="font-size:13px; color:var(--text-dim); margin-bottom:12px;">좋아요를 누르려면 먼저 사번·성명을 확인해주세요.</div>
-    <div class="field">
-      <label>사번</label>
-      <input type="text" id="pi-empid" autocapitalize="characters" placeholder="실제 사번으로 대/소문자 구분 입력(GN00000)">
+  <div id="poster-gallery-area">
+    <div class="notice info">
+      마음에 드는 포스터에 좋아요를 눌러주세요! 포스터당 좋아요는 1인 1회만 가능하고, 누른 좋아요를 다시 탭하면 취소할 수 있어요.
+      키워드 당 2개 포스터에 좋아요를 누를 수 있어요. 좋아요가 가장 많은 포스터에 특별상을 드립니다.
     </div>
-    <div class="field">
-      <label>성명</label>
-      <input type="text" id="pi-name" placeholder="예: 홍길동">
+
+    <!-- 아직 사번·성명이 확인되지 않은 경우에만 노출 (좋아요를 누르려면 필요) -->
+    <div id="poster-identify-box" class="card" style="display:none;">
+      <div style="font-size:13px; color:var(--text-dim); margin-bottom:12px;">좋아요를 누르려면 먼저 사번·성명을 확인해주세요.</div>
+      <div class="field">
+        <label>사번</label>
+        <input type="text" id="pi-empid" autocapitalize="characters" placeholder="실제 사번으로 대/소문자 구분 입력(GN00000)">
+      </div>
+      <div class="field">
+        <label>성명</label>
+        <input type="text" id="pi-name" placeholder="예: 홍길동">
+      </div>
+      <div id="pi-result"></div>
+      <button class="btn btn-primary" id="pi-check-btn">확인하기</button>
     </div>
-    <div id="pi-result"></div>
-    <button class="btn btn-primary" id="pi-check-btn">확인하기</button>
-  </div>
 
-  <div class="info-tabs" id="poster-tabs" style="display:none;"></div>
+    <div class="info-tabs" id="poster-tabs" style="display:none;"></div>
 
-  <div id="poster-grid" class="grid-2">
-    <div class="empty">불러오는 중...</div>
+    <div id="poster-grid" class="grid-2">
+      <div class="empty">불러오는 중...</div>
+    </div>
   </div>
 </div>
 
@@ -314,6 +322,21 @@ if (!COMMUNITY_PREVIEW_BYPASS && !isCommunityOpen()) {
     </div>
   `;
   document.body.appendChild(lock);
+}
+
+/* ---------- 포스터 갤러리 오픈 시각 게이트 (페이지 전체가 아니라 이 영역만) ---------- */
+function isPosterGalleryOpen() {
+  const cfg = window.CONFIG.POSTER_GALLERY_OPEN_AT;
+  if (!cfg) return true;
+  const kst = nowKST();
+  if (kst.date < cfg.date) return false;
+  if (kst.date === cfg.date && kst.hhmm < cfg.time) return false;
+  return true;
+}
+const POSTER_GALLERY_OPEN = COMMUNITY_PREVIEW_BYPASS || isPosterGalleryOpen();
+if (!POSTER_GALLERY_OPEN) {
+  document.getElementById("poster-gallery-area").style.display = "none";
+  document.getElementById("poster-gallery-locked").style.display = "";
 }
 
 let POSTERS = [];
@@ -494,7 +517,7 @@ document.getElementById("pi-check-btn").addEventListener("click", async () => {
   loadPosters();
 });
 
-if (COMMUNITY_PREVIEW_BYPASS || isCommunityOpen()) {
+if ((COMMUNITY_PREVIEW_BYPASS || isCommunityOpen()) && POSTER_GALLERY_OPEN) {
   if (!hasIdentity()) document.getElementById("poster-identify-box").style.display = "";
   loadPosters();
 }
