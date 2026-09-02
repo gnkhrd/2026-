@@ -78,6 +78,31 @@
 <script src="assets/api.js"></script>
 <script src="assets/util.js"></script>
 <script>
+/* ---------- GN 커넥트 챌린지 마감 게이트 ---------- */
+function isConnectChallengeOpen() {
+  const cfg = window.CONFIG.CONNECT_CHALLENGE_CLOSE_AT;
+  if (!cfg) return true;
+  const kst = nowKST();
+  if (kst.date < cfg.date) return true;
+  if (kst.date === cfg.date && kst.hhmm < cfg.time) return true;
+  return false;
+}
+const CONNECT_PREVIEW_BYPASS = new URLSearchParams(location.search).get("preview") === "1";
+if (!CONNECT_PREVIEW_BYPASS && !isConnectChallengeOpen()) {
+  const app = document.querySelector(".app");
+  if (app) app.style.display = "none";
+  const lock = document.createElement("div");
+  lock.className = "site-locked";
+  lock.innerHTML = `
+    <div class="site-locked-box">
+      <div class="site-locked-icon">🏁</div>
+      <div class="site-locked-title">🎉 GN 커넥트 챌린지는 19시 종료되었습니다.</div>
+      <div class="site-locked-desc">🙌 적극적으로 참여해주셔서 감사드립니다.<br>📢 결과는 3일차 오전에 발표하겠습니다.<br>💚 감사합니다.</div>
+    </div>
+  `;
+  document.body.appendChild(lock);
+}
+
 let top10Chart = null;
 
 function renderTop10Chart(top10, myEmpId) {
@@ -197,7 +222,7 @@ async function loadLeaderboard() {
 }
 
 document.getElementById("btn-refresh").addEventListener("click", loadLeaderboard);
-loadLeaderboard();
+if (CONNECT_PREVIEW_BYPASS || isConnectChallengeOpen()) loadLeaderboard();
 </script>
 </body>
 </html>

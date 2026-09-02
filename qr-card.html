@@ -116,6 +116,31 @@
 <script src="assets/api.js"></script>
 <script src="assets/util.js"></script>
 <script>
+/* ---------- GN 커넥트 챌린지 마감 게이트 ---------- */
+function isConnectChallengeOpen() {
+  const cfg = window.CONFIG.CONNECT_CHALLENGE_CLOSE_AT;
+  if (!cfg) return true;
+  const kst = nowKST();
+  if (kst.date < cfg.date) return true;
+  if (kst.date === cfg.date && kst.hhmm < cfg.time) return true;
+  return false;
+}
+const CONNECT_PREVIEW_BYPASS = new URLSearchParams(location.search).get("preview") === "1";
+if (!CONNECT_PREVIEW_BYPASS && !isConnectChallengeOpen()) {
+  const app = document.querySelector(".app");
+  if (app) app.style.display = "none";
+  const lock = document.createElement("div");
+  lock.className = "site-locked";
+  lock.innerHTML = `
+    <div class="site-locked-box">
+      <div class="site-locked-icon">🏁</div>
+      <div class="site-locked-title">🎉 GN 커넥트 챌린지는 19시 종료되었습니다.</div>
+      <div class="site-locked-desc">🙌 적극적으로 참여해주셔서 감사드립니다.<br>📢 결과는 3일차 오전에 발표하겠습니다.<br>💚 감사합니다.</div>
+    </div>
+  `;
+  document.body.appendChild(lock);
+}
+
 let html5QrCode = null;
 let isEditingExisting = false; // '내 정보 수정하기'로 들어온 경우 true (취소 시 main-view로 복귀)
 
@@ -323,6 +348,7 @@ document.getElementById("btn-close-scanner").addEventListener("click", () => {
 // - ?scan=ID : 타인 QR 링크를 직접 눌러서 들어온 경우
 // - ?empId=..&name=.. : 출석체크 페이지에서 "QR 명함 만들러 가기"로 넘어온 경우 (자동으로 확인단계까지 진행)
 (function init() {
+  if (!CONNECT_PREVIEW_BYPASS && !isConnectChallengeOpen()) return; // 마감 후에는 아무 것도 불러오지 않습니다.
   const params = new URLSearchParams(location.search);
   const scanTarget = params.get("scan");
   const fromEmpId = params.get("empId");
