@@ -864,21 +864,26 @@ function buildNetworkAnalytics_() {
   }).sort((a, b) => b.avgScore - a.avgScore);
 
   const individualByScore = individual.slice().sort((a, b) => b.score - a.score);
+  // 점수(교차소속 보너스·마일스톤 포함)가 아니라, 순수 "몇 명을 스캔했는지" 활동량 기준 랭킹입니다.
+  const individualByCount = individual.slice()
+    .sort((a, b) => (b.uniqueCount - a.uniqueCount) || (b.crossOrgCount - a.crossOrgCount));
   const individualByDiversity = individual.slice()
     .sort((a, b) => (b.orgDiversity - a.orgDiversity) || (b.roleDiversity - a.roleDiversity) || (b.uniqueCount - a.uniqueCount));
   const orgByReach = orgRanking.slice().sort((a, b) => b.orgReachCount - a.orgReachCount);
 
-  return { individualByScore, orgRanking, individualByDiversity, orgByReach };
+  return { individualByScore, individualByCount, orgRanking, individualByDiversity, orgByReach };
 }
 
 // 관리자 PIN을 맞게 입력한 경우에만 통계를 내려줍니다 (전체 공개 아님).
-// ① 개인 랭킹 TOP10  ② 소속별 랭킹 TOP10  ③ 교류 다양성(소속수·직급수) 개인 TOP10  ④ 교류 다양성 소속 TOP10
+// ① 개인 랭킹 TOP10(점수)  ② 커넥트 활동 TOP10(스캔 인원수)  ③ 소속별 랭킹 TOP10
+// ④ 교류 다양성(소속수·직급수) 개인 TOP10  ⑤ 교류 다양성 소속 TOP10
 function actionGetNetworkStats_(p) {
   if (String(p.pin || "") !== String(ADMIN_PIN)) return { ok: false, message: "암호가 올바르지 않습니다." };
   const a = buildNetworkAnalytics_();
   return {
     ok: true,
     individualTop10: a.individualByScore.slice(0, 10),
+    individualCountTop10: a.individualByCount.slice(0, 10),
     orgTop10: a.orgRanking.slice(0, 10),
     individualDiversityTop10: a.individualByDiversity.slice(0, 10),
     orgDiversityTop10: a.orgByReach.slice(0, 10)

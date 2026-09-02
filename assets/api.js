@@ -198,12 +198,15 @@
       };
     }).sort((a, b) => b.avgScore - a.avgScore);
     const individualByScore = individual.slice().sort((a, b) => b.score - a.score);
+    const individualByCount = individual.slice()
+      .sort((a, b) => (b.uniqueCount - a.uniqueCount) || (b.crossOrgCount - a.crossOrgCount));
     const individualByDiversity = individual.slice()
       .sort((a, b) => (b.orgDiversity - a.orgDiversity) || (b.roleDiversity - a.roleDiversity) || (b.uniqueCount - a.uniqueCount));
     const orgByReach = orgRanking.slice().sort((a, b) => b.orgReachCount - a.orgReachCount);
     return {
       ok: true,
       individualTop10: individualByScore.slice(0, 10),
+      individualCountTop10: individualByCount.slice(0, 10),
       orgTop10: orgRanking.slice(0, 10),
       individualDiversityTop10: individualByDiversity.slice(0, 10),
       orgDiversityTop10: orgByReach.slice(0, 10)

@@ -69,24 +69,43 @@ function crowdMaxDots_() {
   return perRow * CROWD_MAX_ROWS;
 }
 
+// 출석자가 1명이라도 있으면(=CI 로고를 100%로 채우는 시점과 동일하게) 초록 점 2줄을 항상
+// 꽉 채운 상태로 상시 노출합니다. 실제 출석 인원 수만큼 점진적으로 늘어나던 방식은 더 이상
+// 사용하지 않습니다 — 원래대로 되돌리려면 아래 주석 처리된 코드로 교체하면 됩니다.
 function growCrowd(count) {
   const grid = document.getElementById("crowd-grid");
-  const target = Math.min(count, crowdMaxDots_());
-  if (target < crowdDotsRendered) { grid.innerHTML = ""; crowdDotsRendered = 0; } // 방어적 처리(보통 발생하지 않음)
-  const toAdd = target - crowdDotsRendered;
-  for (let i = 0; i < toAdd; i++) {
+  const target = count > 0 ? crowdMaxDots_() : 0;
+  if (target === crowdDotsRendered) return;
+  grid.innerHTML = "";
+  for (let i = 0; i < target; i++) {
     const dot = document.createElement("div");
     dot.className = "crowd-dot";
     grid.appendChild(dot);
   }
   crowdDotsRendered = target;
 }
+// function growCrowd(count) {
+//   const grid = document.getElementById("crowd-grid");
+//   const target = Math.min(count, crowdMaxDots_());
+//   if (target < crowdDotsRendered) { grid.innerHTML = ""; crowdDotsRendered = 0; }
+//   const toAdd = target - crowdDotsRendered;
+//   for (let i = 0; i < toAdd; i++) {
+//     const dot = document.createElement("div");
+//     dot.className = "crowd-dot";
+//     grid.appendChild(dot);
+//   }
+//   crowdDotsRendered = target;
+// }
 
 async function refreshVisuals(count) {
-  // CI 로고 채움 정도는 전체 명단 대비 비율을 내부적으로만 사용합니다(숫자는 화면에 노출하지 않음).
-  const rc = await API.getRosterCount();
-  const total = rc.ok ? rc.count : 0;
-  const pct = total ? Math.min(100, Math.round((count / total) * 100)) : 0;
+  // 원래는 전체 명단 대비 출석 비율만큼 CI 로고를 채웠습니다. 다만 오늘(9/1) 초반 사번 매칭
+  // 오류로 실제 출석 가능 인원보다 출석자가 적게 집계된 상태라, 요청에 따라 "지금까지 출석한
+  // 인원 = 전체"로 간주해 항상 100%(전체 색칠)로 표시합니다. 실제 명단 대비 비율로 되돌리려면
+  // 아래 주석 처리된 코드로 교체하면 됩니다.
+  const pct = count > 0 ? 100 : 0;
+  // const rc = await API.getRosterCount();
+  // const total = rc.ok ? rc.count : 0;
+  // const pct = total ? Math.min(100, Math.round((count / total) * 100)) : 0;
   document.getElementById("ci-fill-clip").style.width = pct + "%";
   growCrowd(count);
 }

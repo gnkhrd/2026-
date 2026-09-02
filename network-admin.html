@@ -33,6 +33,13 @@
     <div class="card" id="ind-list" style="padding:6px 14px;"></div>
 
     <div class="section-title">
+      <span>커넥트 활동 TOP10</span>
+      <span class="count" id="ind-scan-count">0명</span>
+    </div>
+    <div class="notice info" style="margin-bottom:10px;">점수(교차소속 보너스 등)와 무관하게, 순수하게 가장 많은 사람을 스캔한 순서예요.</div>
+    <div class="card" id="ind-scan-list" style="padding:6px 14px;"></div>
+
+    <div class="section-title">
       <span>소속별 랭킹 TOP10</span>
       <span class="count" id="org-count">0곳</span>
     </div>
@@ -85,6 +92,23 @@ function renderIndividual(list) {
         <div class="meta">${r.org || ""} · 스캔 ${r.uniqueCount}명 · 타소속교류 ${r.crossOrgCount}명</div>
       </div>
       <div class="score">${r.score}<span class="unit">점</span></div>
+    </div>
+  `).join("");
+}
+
+function renderIndividualByScan(list) {
+  const wrap = document.getElementById("ind-scan-list");
+  document.getElementById("ind-scan-count").textContent = list.length + "명";
+  if (!list.length) { wrap.innerHTML = '<div class="empty">아직 스캔 기록이 없습니다.</div>'; return; }
+  wrap.innerHTML = list.map((r, i) => `
+    <div class="list-item rank-item rank-${i + 1}">
+      <div class="rank-num">${ordinalBadge(i + 1)}</div>
+      <div class="avatar">${initials(r.name)}</div>
+      <div>
+        <div class="name">${r.name}</div>
+        <div class="meta">${r.org || ""} · 타소속교류 ${r.crossOrgCount}명 · 점수 ${r.score}점</div>
+      </div>
+      <div class="score">${r.uniqueCount}<span class="unit">명 스캔</span></div>
     </div>
   `).join("");
 }
@@ -142,6 +166,7 @@ async function loadStats() {
   const res = await API.getNetworkStats(currentPin);
   if (!res.ok) return;
   renderIndividual(res.individualTop10);
+  renderIndividualByScan(res.individualCountTop10);
   renderOrg(res.orgTop10);
   renderIndividualDiversity(res.individualDiversityTop10);
   renderOrgDiversity(res.orgDiversityTop10);
@@ -163,6 +188,7 @@ document.getElementById("pin-btn").addEventListener("click", async () => {
   document.getElementById("pin-box").style.display = "none";
   document.getElementById("result-wrap").style.display = "";
   renderIndividual(res.individualTop10);
+  renderIndividualByScan(res.individualCountTop10);
   renderOrg(res.orgTop10);
   renderIndividualDiversity(res.individualDiversityTop10);
   renderOrgDiversity(res.orgDiversityTop10);
