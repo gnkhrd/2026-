@@ -107,19 +107,25 @@ function showList() {
 }
 
 /* ---------- 자료 목록 ---------- */
-// 주제발표/사례발표 제목이 아래 패턴으로 시작하면 해당 세션으로 자동 묶입니다.
+// 주제발표/사례발표/특별발표 제목이 아래 패턴으로 시작하면 해당 세션으로 자동 묶입니다.
 // (제목 뒤에 어떤 부제가 붙어도 접두어만 맞으면 인식됩니다 — 예: "주제발표1 지역사회 공동체 기반...")
+// patterns는 배열이며, 앞에 적힌 패턴일수록 화면에서 먼저(왼쪽) 표시됩니다 —
+// 시트에 행이 어떤 순서로 들어가도 이 순서를 따릅니다.
 const MATERIAL_SESSIONS = [
-  { label: "Session1. 지역사회 협력 기반 신사회문제 대응과 제도화", match: /^(주제발표1|사례발표1)/ },
-  { label: "Session2. 임팩트사업의 성과와 사회적 가치 확산", match: /^(주제발표2|사례발표2)/ },
-  { label: "Session3. AI시대, 시스템화를 통한 조직 혁신", match: /^(주제발표3|사례발표3)/ }
+  { label: "Session1. 지역사회 협력 기반 신사회문제 대응과 제도화", patterns: [/^주제발표1/, /^사례발표1/] },
+  { label: "Session2. 임팩트사업의 성과와 사회적 가치 확산", patterns: [/^주제발표2/, /^사례발표2/] },
+  { label: "Session3. AI시대, 시스템화를 통한 조직 혁신", patterns: [/^특별발표/, /^주제발표3/, /^사례발표3/] }
 ];
+
+function materialPatternIndex_(session, title) {
+  return session.patterns.findIndex(p => p.test(title));
+}
 
 // "주제발표1) 지역사회 공동체 기반..." 처럼 앞에 붙는 번호표를 따로 떼어내, 번호표 / 나머지 설명
 // 두 문단으로 나눠 보여줍니다. 이런 형식이 아닌 제목은 그대로 한 문단으로 표시합니다.
 function splitMaterialTitle_(title) {
   const t = String(title || "").trim();
-  const m = t.match(/^((?:주제발표|사례발표)\s*\d+(?:-\d+)?\)?)\s*(.*)$/);
+  const m = t.match(/^((?:(?:주제발표|사례발표)\s*\d+(?:-\d+)?|특별발표)\)?)\s*(.*)$/);
   if (m && m[2]) return { label: m[1], desc: m[2] };
   return { label: "", desc: t };
 }
@@ -141,11 +147,13 @@ let materialGroups = [];   // [{ key, label, items }]
 let activeMaterialTab = null;
 
 function buildMaterialGroups_() {
-  const groups = MATERIAL_SESSIONS.map((s, i) => ({
-    key: "s" + i,
-    label: s.label,
-    items: MATERIALS_LIST.filter(m => s.match.test(String(m.title || "").trim()))
-  })).filter(g => g.items.length);
+  const groups = MATERIAL_SESSIONS.map((s, i) => {
+    const items = MATERIALS_LIST
+      .filter(m => materialPatternIndex_(s, String(m.title || "").trim()) !== -1)
+      .slice()
+      .sort((a, b) => materialPatternIndex_(s, String(a.title || "").trim()) - materialPatternIndex_(s, String(b.title || "").trim()));
+    return { key: "s" + i, label: s.label, items };
+  }).filter(g => g.items.length);
   const groupedSet = new Set(groups.flatMap(g => g.items));
   const others = MATERIALS_LIST.filter(m => !groupedSet.has(m));
   if (others.length) groups.push({ key: "others", label: "기타 자료", items: others });
